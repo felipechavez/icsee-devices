@@ -1,0 +1,85 @@
+{
+  "realm": "camguard",
+  "displayName": "CamGuard",
+  "enabled": true,
+  "registrationAllowed": false,
+  "resetPasswordAllowed": true,
+  "rememberMe": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "bruteForceProtected": true,
+  "failureFactor": 10,
+  "sslRequired": "external",
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 43200,
+  "ssoSessionMaxLifespan": 604800,
+  "internationalizationEnabled": true,
+  "supportedLocales": ["es"],
+  "defaultLocale": "es",
+  "loginTheme": "camguard",
+  "emailTheme": "camguard",
+  "smtpServer": {
+    "host": "${SMTP_HOST:}",
+    "port": "${SMTP_PORT:587}",
+    "from": "${SMTP_FROM:noreply@camguard.local}",
+    "fromDisplayName": "CamGuard",
+    "auth": "${SMTP_AUTH:true}",
+    "user": "${SMTP_USER:}",
+    "password": "${SMTP_PASSWORD:}",
+    "starttls": "${SMTP_STARTTLS:true}",
+    "ssl": "false"
+  },
+  "clients": [
+    {
+      "clientId": "camguard-web",
+      "name": "CamGuard",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "rootUrl": "${PUBLIC_URL}",
+      "baseUrl": "${PUBLIC_URL}/",
+      "redirectUris": ["${PUBLIC_URL}/*"],
+      "webOrigins": ["+"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "${PUBLIC_URL}/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "camguard-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "camguard-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "${CAMGUARD_ADMIN_USER:admin}",
+      "email": "${CAMGUARD_ADMIN_EMAIL}",
+      "emailVerified": true,
+      "firstName": "Administrador",
+      "lastName": "CamGuard",
+      "enabled": true,
+      "requiredActions": ["UPDATE_PASSWORD"],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${CAMGUARD_ADMIN_PASSWORD}",
+          "temporary": true
+        }
+      ]
+    }
+  ]
+}

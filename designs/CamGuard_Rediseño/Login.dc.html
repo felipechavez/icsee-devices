@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0c0d0f;color:#ececee;font-family:Geist,system-ui,sans-serif;-webkit-font-smoothing:antialiased;color-scheme:dark}
+a{color:#c3c7cd;text-decoration:none}a:hover{color:#fff}
+input{font:inherit;color:inherit}
+input::placeholder{color:#5d636c}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+</style>
+</helmet>
+<div style="min-height:100vh;display:flex;flex-wrap:wrap;background:#0c0d0f">
+
+  <section style="position:relative;flex:1.5 1 560px;min-height:440px;margin:16px;border-radius:18px;overflow:hidden;background:#000;border:1px solid #1f2227">
+    <div style="position:absolute;inset:0;display:grid;grid-template-columns:{{ gridCols }};gap:2px;filter:{{ feedFilter }};transform:scale({{ feedScale }});transition:filter 1.1s ease,transform 1.4s ease">
+      <sc-for list="{{ feeds }}" as="f" hint-placeholder-count="4">
+        <div style="position:relative;overflow:hidden;background:#000">
+          <img src="thumb.png" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:{{ f.t }}"/>
+          <span style="position:absolute;left:12px;bottom:10px;font:500 11px 'Geist Mono',monospace;color:#fff;opacity:{{ liveOpacity }};transition:opacity .6s .6s">{{ f.id }} · {{ f.name }}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(255,255,255,.035) 0 1px,transparent 1px 3px)"></div>
+    <div style="position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 40%,rgba(0,0,0,.65) 100%)"></div>
+
+    <div style="position:absolute;inset:0;display:flex;flex-direction:column;pointer-events:none">
+      <div style="height:{{ shutterH }};background:#0f1113;border-bottom:1px solid #2a2e35;transition:height .55s cubic-bezier(.7,0,.2,1);overflow:hidden;display:flex;align-items:flex-end;justify-content:center;background-image:repeating-linear-gradient(90deg,#121417 0 22px,#0f1113 22px 44px)"></div>
+      <div style="flex:1"></div>
+      <div style="height:{{ shutterH }};background:#0f1113;border-top:1px solid #2a2e35;transition:height .55s cubic-bezier(.7,0,.2,1);overflow:hidden;background-image:repeating-linear-gradient(90deg,#121417 0 22px,#0f1113 22px 44px)"></div>
+    </div>
+    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:{{ shutterLabelOp }};transition:opacity .3s">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;padding:0 24px">
+        <span style="font:500 11px 'Geist Mono',monospace;letter-spacing:.14em;color:#8d939c">OBTURADOR DE PRIVACIDAD</span>
+        <span style="font-size:20px;font-weight:600;letter-spacing:-.01em;color:#ececee">Nadie mira mientras escribes.</span>
+      </div>
+    </div>
+
+    <div style="position:absolute;top:20px;left:20px;width:28px;height:28px;border-top:2px solid rgba(255,255,255,.7);border-left:2px solid rgba(255,255,255,.7)"></div>
+    <div style="position:absolute;top:20px;right:20px;width:28px;height:28px;border-top:2px solid rgba(255,255,255,.7);border-right:2px solid rgba(255,255,255,.7)"></div>
+    <div style="position:absolute;bottom:20px;left:20px;width:28px;height:28px;border-bottom:2px solid rgba(255,255,255,.7);border-left:2px solid rgba(255,255,255,.7)"></div>
+    <div style="position:absolute;bottom:20px;right:20px;width:28px;height:28px;border-bottom:2px solid rgba(255,255,255,.7);border-right:2px solid rgba(255,255,255,.7)"></div>
+
+    <div style="position:absolute;top:30px;left:58px;display:flex;align-items:center;gap:8px;padding:5px 11px;border-radius:999px;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);font:500 11px 'Geist Mono',monospace;letter-spacing:.08em;color:{{ statusColor }}">
+      <span style="width:7px;height:7px;border-radius:50%;background:{{ statusColor }};animation:pulse 1.6s infinite"></span>{{ statusText }}
+    </div>
+    <div style="position:absolute;top:30px;right:58px;padding:5px 11px;border-radius:6px;background:rgba(0,0,0,.6);font:500 12px 'Geist Mono',monospace;color:#ececee">{{ clock }}</div>
+
+    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:{{ lockedOpacity }};transition:opacity .5s">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center">
+        <div style="position:relative;width:56px;height:56px">
+          <div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.55)"></div>
+          <div style="position:absolute;top:50%;left:0;right:0;height:1px;background:rgba(255,255,255,.55)"></div>
+          <div style="position:absolute;inset:16px;border:1px solid rgba(255,255,255,.55);border-radius:50%"></div>
+        </div>
+        <span style="font-size:15px;font-weight:500;color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.8)">{{ lockedMsg }}</span>
+      </div>
+    </div>
+
+    <div style="position:absolute;left:58px;right:58px;bottom:30px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;font:400 11px 'Geist Mono',monospace;color:#c3c7cd">
+      <span>CIFRADO AES-256 · TLS 1.3</span>
+      <span>{{ feedCountLabel }}</span>
+    </div>
+  </section>
+
+  <section style="flex:1 1 380px;display:flex;flex-direction:column;padding:40px clamp(24px,5vw,72px);box-sizing:border-box;min-height:100vh">
+    <div style="display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;letter-spacing:-.01em">
+      <span style="display:grid;place-items:center;width:26px;height:26px;border-radius:7px;background:#1b1e22;border:1px solid #2a2e35"><span style="width:8px;height:8px;border-radius:50%;background:#ff5544;box-shadow:0 0 0 3px rgba(255,85,68,.18)"></span></span>
+      CamGuard
+    </div>
+
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;max-width:380px;width:100%;margin:0 auto;padding:48px 0">
+      <sc-if value="{{ notGranted }}" hint-placeholder-val="{{ true }}">
+        <form onSubmit="{{ submit }}" style="display:flex;flex-direction:column;gap:28px;animation:{{ shakeAnim }}">
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <h1 style="margin:0;font-size:34px;font-weight:600;letter-spacing:-.03em;line-height:1.1">Hola de nuevo.</h1>
+            <p style="margin:0;font-size:15px;color:#8d939c;text-wrap:pretty">Tus cámaras siguen grabando. Identifícate para volver a verlas.</p>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:18px">
+            <label style="display:flex;flex-direction:column;gap:8px">
+              <span style="font-size:13px;font-weight:500;color:#c3c7cd">Usuario o email</span>
+              <input value="{{ user }}" onChange="{{ onUser }}" autocomplete="username" placeholder="admin" style="height:46px;padding:0 14px;border-radius:10px;background:#0f1113;border:1px solid #262a30;outline:none;font-size:15px;box-sizing:border-box" style-focus="border-color:#5d636c;box-shadow:0 0 0 4px rgba(255,255,255,.04)"/>
+            </label>
+            <label style="display:flex;flex-direction:column;gap:8px">
+              <span style="display:flex;justify-content:space-between;align-items:baseline;font-size:13px;font-weight:500;color:#c3c7cd">Contraseña<a href="#" style="font-size:12px;font-weight:400;color:#8d939c">¿La olvidaste?</a></span>
+              <span style="position:relative;display:flex">
+                <input type="{{ pwType }}" value="{{ pw }}" onChange="{{ onPw }}" onFocus="{{ pwFocus }}" onBlur="{{ pwBlur }}" autocomplete="current-password" placeholder="••••••••" style="flex:1;height:46px;padding:0 64px 0 14px;border-radius:10px;background:#0f1113;border:1px solid #262a30;outline:none;font-size:15px;box-sizing:border-box;width:100%" style-focus="border-color:#5d636c;box-shadow:0 0 0 4px rgba(255,255,255,.04)"/>
+                <button type="button" onClick="{{ togglePw }}" style="position:absolute;right:6px;top:7px;height:32px;padding:0 10px;border:0;border-radius:7px;background:transparent;color:#8d939c;cursor:pointer;font:500 12px Geist,sans-serif" style-hover="background:#1b1e22;color:#fff">{{ pwToggleLabel }}</button>
+              </span>
+            </label>
+            <sc-if value="{{ hasError }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:9px;border:1px solid #3a2522;background:rgba(255,85,68,.06);font-size:13px;color:#ff8a7d">{{ error }}</div>
+            </sc-if>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <button type="submit" disabled="{{ busy }}" style="height:48px;border:0;border-radius:10px;background:#ececee;color:#0c0d0f;cursor:pointer;font:600 15px Geist,sans-serif;display:flex;align-items:center;justify-content:center;gap:10px" style-hover="background:#fff">{{ submitLabel }}</button>
+            <button type="button" onClick="{{ toggleRemember }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:13px;color:#c3c7cd">
+              <span style="position:relative;width:30px;height:18px;border-radius:999px;background:{{ remTrack }};border:1px solid #2a2e35;transition:background .2s">
+                <span style="position:absolute;top:2px;left:{{ remKnobLeft }};width:12px;height:12px;border-radius:50%;background:#ececee;transition:left .2s"></span>
+              </span>
+              Seguir conectado en este dispositivo
+            </button>
+          </div>
+        </form>
+      </sc-if>
+      <sc-if value="{{ granted }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:28px">
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <span style="display:inline-flex;align-items:center;gap:8px;font:500 11px 'Geist Mono',monospace;letter-spacing:.1em;color:#4ad395"><span style="width:7px;height:7px;border-radius:50%;background:#4ad395"></span>ACCESO CONCEDIDO</span>
+            <h1 style="margin:0;font-size:34px;font-weight:600;letter-spacing:-.03em;line-height:1.1">Bienvenido, {{ displayUser }}.</h1>
+            <p style="margin:0;font-size:15px;color:#8d939c;text-wrap:pretty">4 cámaras en línea · 3 movimientos desde tu última visita.</p>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <a href="CamGuard.dc.html" style="height:48px;border-radius:10px;background:#ececee;color:#0c0d0f;font:600 15px Geist,sans-serif;display:flex;align-items:center;justify-content:center" style-hover="background:#fff;color:#0c0d0f">Ver cámaras</a>
+            <button type="button" onClick="{{ reset }}" style="height:44px;border:1px solid #262a30;border-radius:10px;background:transparent;color:#c3c7cd;cursor:pointer;font:500 14px Geist,sans-serif" style-hover="background:#16181b;color:#fff">Cambiar de cuenta</button>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;font-size:12px;color:#5d636c">
+      <span>CamGuard · Acceso privado</span>
+      <span style="font-family:'Geist Mono',monospace">v2.4.1</span>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;feeds&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;mosaico&quot;,&quot;una cámara&quot;],&quot;default&quot;:&quot;mosaico&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;shutter&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  state = { user: 'admin', pw: '', show: false, focus: false, phase: 'idle', error: '', remember: true, now: new Date(), shake: 0 };
+  componentDidMount() { this.t = setInterval(() => this.setState({ now: new Date() }), 1000); }
+  componentWillUnmount() { clearInterval(this.t); }
+  submit = (e) => {
+    e.preventDefault();
+    if (!this.state.user.trim() || !this.state.pw) {
+      return this.setState(s => ({ error: 'Escribe tu usuario y contraseña.', shake: s.shake + 1 }));
+    }
+    if (this.state.pw.length < 4) {
+      return this.setState(s => ({ error: 'Usuario o contraseña incorrectos.', shake: s.shake + 1 }));
+    }
+    this.setState({ phase: 'busy', error: '', focus: false });
+    setTimeout(() => this.setState({ phase: 'granted' }), 1300);
+  };
+  renderVals() {
+    const s = this.state, p = this.props;
+    const mosaic = (p.feeds ?? 'mosaico') === 'mosaico';
+    const shutterOn = p.shutter ?? true;
+    const granted = s.phase === 'granted', busy = s.phase === 'busy';
+    const closed = shutterOn && s.focus && s.pw.length > 0 || shutterOn && s.focus;
+    const all = [
+      { id: 'CAM-01', name: 'Entrada', t: 'none' },
+      { id: 'CAM-02', name: 'Patio', t: 'scaleX(-1) scale(1.25)' },
+      { id: 'CAM-03', name: 'Garaje', t: 'scale(1.6) translate(8%,6%)' },
+      { id: 'CAM-04', name: 'Salón', t: 'scaleX(-1) scale(1.4) translate(-6%,-4%)' }
+    ];
+    const pad = n => String(n).padStart(2, '0'), d = s.now;
+    return {
+      feeds: mosaic ? all : all.slice(0, 1),
+      gridCols: mosaic ? '1fr 1fr' : '1fr',
+      feedFilter: granted ? 'none' : busy ? 'blur(8px) grayscale(.6) brightness(.6)' : 'blur(22px) grayscale(1) brightness(.45)',
+      feedScale: granted ? 1 : 1.08,
+      shutterH: closed ? '50%' : '0%',
+      shutterLabelOp: closed ? 1 : 0,
+      liveOpacity: granted ? 1 : 0,
+      lockedOpacity: granted || closed ? 0 : 1,
+      lockedMsg: busy ? 'Verificando identidad…' : 'Señal cifrada · identifícate para ver',
+      statusText: granted ? 'EN VIVO' : busy ? 'VERIFICANDO' : 'SEÑAL CIFRADA',
+      statusColor: granted ? '#4ad395' : busy ? '#f2b84b' : '#ff5544',
+      clock: `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}  ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`,
+      feedCountLabel: mosaic ? '4 CÁMARAS · GRABANDO' : 'CAM-01 · ENTRADA',
+      user: s.user, pw: s.pw,
+      onUser: e => this.setState({ user: e.target.value, error: '' }),
+      onPw: e => this.setState({ pw: e.target.value, error: '' }),
+      pwFocus: () => this.setState({ focus: true }),
+      pwBlur: () => this.setState({ focus: false }),
+      pwType: s.show ? 'text' : 'password',
+      pwToggleLabel: s.show ? 'Ocultar' : 'Mostrar',
+      togglePw: () => this.setState({ show: !s.show }),
+      submit: this.submit, busy,
+      submitLabel: busy ? 'Verificando…' : 'Iniciar sesión',
+      hasError: !!s.error, error: s.error,
+      shakeAnim: s.shake ? `shake .4s ${s.shake % 2 ? '' : 'alternate'}` : 'none',
+      toggleRemember: () => this.setState({ remember: !s.remember }),
+      remTrack: s.remember ? '#4ad395' : '#1b1e22',
+      remKnobLeft: s.remember ? '14px' : '2px',
+      notGranted: !granted, granted,
+      displayUser: s.user || 'admin',
+      reset: () => this.setState({ phase: 'idle', pw: '', show: false })
+    };
+  }
+}
+</script>
+</body>
+</html>

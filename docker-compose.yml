@@ -1,0 +1,130 @@
+services:
+  go2rtc:
+    image: alexxit/go2rtc
+    network_mode: host
+    environment:
+      GO2RTC_USER: ${GO2RTC_USER}
+      GO2RTC_PASSWORD: ${GO2RTC_PASSWORD}
+      HOST_IP: ${HOST_IP}
+    volumes:
+      - ./go2rtc.yaml:/config/go2rtc.yaml:ro
+    restart: unless-stopped
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Express
+      MSSQL_SA_PASSWORD: ${SQL_PASSWORD}
+    volumes:
+      - sqldata:/var/opt/mssql
+      - ./backups:/var/opt/mssql/backup
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" -b -o /dev/null
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+  api:
+    build: ./backend
+    environment:
+      TZ: ${TZ:-UTC}
+      ConnectionStrings__Default: Server=sqlserver;Database=CamGuard;User Id=sa;Password=${SQL_PASSWORD};TrustServerCertificate=True
+      App__PublicBaseUrl: ${PUBLIC_URL}
+      # Tokens de Keycloak: issuer público, discovery y JWKS por la red interna
+      Auth__Authority: ${PUBLIC_URL}/auth/realms/camguard
+      Auth__MetadataAddress: http://keycloak:8080/auth/realms/camguard/.well-known/openid-configuration
+      Auth__Audience: camguard-api
+      # Solo para sembrar la primera cámara (las demás se agregan desde la web)
+      Camera__Ip: ${CAMERA_IP:-}
+      Camera__Username: ${CAMERA_USER:-admin}
+      Camera__Password: ${CAMERA_PASSWORD:-}
+      Go2rtc__BaseUrl: http://host.docker.internal:1984
+      Go2rtc__RtspBaseUrl: rtsp://${GO2RTC_USER}:${GO2RTC_PASSWORD}@host.docker.internal:8554
+      Go2rtc__Username: ${GO2RTC_USER}
+      Go2rtc__Password: ${GO2RTC_PASSWORD}
+      Storage__Endpoint: ${R2_ENDPOINT}
+      Storage__AccessKey: ${R2_ACCESS_KEY}
+      Storage__SecretKey: ${R2_SECRET_KEY}
+      Storage__Bucket: ${R2_BUCKET:-camguard}
+      Ntfy__Url: ${NTFY_URL}
+      Ntfy__Token: ${NTFY_TOKEN:-}
+    volumes:
+      - apidata:/data
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    restart: unless-stopped
+
+  keycloak-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: ${KC_DB_PASSWORD}
+    volumes:
+      - kcdata:/var/lib/postgresql/data
+    healthcheck:
+      test: pg_isready -U keycloak -d keycloak
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  keycloak:
+    build: ./keycloak
+    environment:
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KC_DB_PASSWORD}
+      # Se publica detrás de nginx en ${PUBLIC_URL}/auth; el issuer de los tokens es siempre ese.
+      KC_HOSTNAME: ${PUBLIC_URL}/auth
+      # Discovery/JWKS pedidos por la API a keycloak:8080 devuelven URLs internas.
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+      # Admin del realm master (consola en ${PUBLIC_URL}/auth/admin); solo se crea la primera vez.
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_ADMIN_USER:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD}
+      # Valores del realm camguard (keycloak/realm-camguard.json), solo al importarlo por primera vez
+      PUBLIC_URL: ${PUBLIC_URL}
+      CAMGUARD_ADMIN_USER: ${CAMGUARD_ADMIN_USER:-admin}
+      CAMGUARD_ADMIN_EMAIL: ${CAMGUARD_ADMIN_EMAIL}
+      CAMGUARD_ADMIN_PASSWORD: ${CAMGUARD_ADMIN_PASSWORD}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_FROM: ${SMTP_FROM:-noreply@camguard.local}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+    ports:
+      # Solo para desarrollo local (Vite hace de proxy de /auth hacia aquí).
+      - "127.0.0.1:${KEYCLOAK_DEV_PORT:-8180}:8080"
+    healthcheck:
+      # La imagen no trae curl: petición HTTP a mano al puerto de gestión.
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /auth/health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 && grep -q '\"status\": \"UP\"' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build: ./frontend
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      - api
+      - keycloak
+    restart: unless-stopped
+
+volumes:
+  sqldata:
+  apidata:
+  kcdata:

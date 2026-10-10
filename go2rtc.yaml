@@ -1,0 +1,26 @@
+# go2rtc: única conexión con cada cámara. Las variables ${...} vienen del .env
+# (docker compose se las pasa al contenedor).
+
+api:
+  listen: ":1984"
+  username: ${GO2RTC_USER}
+  password: ${GO2RTC_PASSWORD}
+
+rtsp:
+  listen: ":8554"
+  username: ${GO2RTC_USER}
+  password: ${GO2RTC_PASSWORD}
+
+webrtc:
+  listen: ":8555"
+  candidates:
+    # IP del equipo en la LAN (o la IP de Tailscale) para que el navegador llegue al video.
+    - ${HOST_IP}:8555
+    - stun:8555
+
+# Sin streams fijos: la API registra uno por cámara habilitada (PATCH /api/streams) con las
+# credenciales guardadas desde la web, y los vuelve a registrar si go2rtc se reinicia.
+# Cualquier stream que no corresponda a una cámara de CamGuard se quita.
+
+log:
+  level: info

@@ -1,0 +1,21 @@
+# Override para Docker Desktop en Windows: ahí network_mode: host deja a go2rtc
+# dentro de la VM de Docker y ni la API ni el navegador lo alcanzan. Se usa la
+# red bridge con puertos publicados; la cámara se alcanza por NAT y WebRTC
+# anuncia ${HOST_IP}:8555 (go2rtc.yaml), que llega al puerto publicado.
+# scripts/up.ps1 lo agrega solo:
+#   docker compose -f docker-compose.yml -f docker-compose.windows.yml up -d
+services:
+  go2rtc:
+    network_mode: !reset null
+    ports:
+      # Consola web de go2rtc en http://localhost:11984 (solo depuración; la API usa go2rtc:1984).
+      # No se publica en 1984: Windows suele reservar el rango 1976–2075 (Hyper-V/WinNAT).
+      - "127.0.0.1:11984:1984"
+      - "8554:8554"
+      - "8555:8555/tcp"
+      - "8555:8555/udp"
+
+  api:
+    environment:
+      Go2rtc__BaseUrl: http://go2rtc:1984
+      Go2rtc__RtspBaseUrl: rtsp://${GO2RTC_USER}:${GO2RTC_PASSWORD}@go2rtc:8554

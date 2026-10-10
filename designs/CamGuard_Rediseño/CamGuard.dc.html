@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{--bg:#0c0d0f;--surface:#141619;--surface-2:#16181b;--surface-3:#1b1e22;--line:#1f2227;--line-2:#24272c;--line-3:#262a30;--line-4:#2a2e35;--line-5:#3a3f47;--input:#0f1113;--foot:#121417;--stripe:#1a1c20;--text:#ececee;--text-strong:#fff;--text-2:#c3c7cd;--muted:#8d939c;--dim:#5d636c;--idle:#a3a8b0;--red:#ff5544;--red-text:#ff8a7d;--green:#4ad395;--amber:#f2b84b;--danger-line:#3a2522;--header:rgba(12,13,15,.86);--scrim:rgba(5,6,7,.82);color-scheme:dark;transition:background .25s,color .25s}
+body.light{--bg:#f5f5f2;--surface:#fff;--surface-2:#efefeb;--surface-3:#e8e8e3;--line:#e3e3dd;--line-2:#dadad3;--line-3:#d4d4cd;--line-4:#cbcbc4;--line-5:#a9a9a2;--input:#fbfbf9;--foot:#f9f9f6;--stripe:#e6e6e1;--text:#17181b;--text-strong:#000;--text-2:#43464c;--muted:#686d75;--dim:#9a9ea5;--idle:#686d75;--red:#e0392a;--red-text:#bf3020;--green:#1c9a5f;--amber:#a86f12;--danger-line:#efc8c2;--header:rgba(245,245,242,.86);--scrim:rgba(245,245,242,.92);color-scheme:light}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Geist,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--text);text-decoration:none}a:hover{color:var(--text-strong)}
+input{font:inherit;color:inherit}
+input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+</style>
+</helmet>
+<div style="min-height:100vh;display:flex;flex-direction:column;background:var(--bg)">
+  <header style="position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:28px;padding:0 28px;height:60px;background:var(--header);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)">
+    <div style="display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;letter-spacing:-.01em">
+      <span style="display:grid;place-items:center;width:26px;height:26px;border-radius:7px;background:var(--surface-3);border:1px solid var(--line-4)"><span style="width:8px;height:8px;border-radius:50%;background:var(--red);box-shadow:0 0 0 3px rgba(255,85,68,.18)"></span></span>
+      CamGuard
+    </div>
+    <nav style="display:flex;gap:4px">
+      <button onClick="{{ goInicio }}" style="border:0;cursor:pointer;font:500 14px Geist,sans-serif;padding:8px 12px;border-radius:8px;background:{{ tabBg.inicio }};color:{{ tabFg.inicio }}">Inicio</button>
+      <button onClick="{{ goGrab }}" style="border:0;cursor:pointer;font:500 14px Geist,sans-serif;padding:8px 12px;border-radius:8px;background:{{ tabBg.grab }};color:{{ tabFg.grab }}">Grabaciones</button>
+      <button onClick="{{ goConfig }}" style="border:0;cursor:pointer;font:500 14px Geist,sans-serif;padding:8px 12px;border-radius:8px;background:{{ tabBg.config }};color:{{ tabFg.config }}">Configuración</button>
+    </nav>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:18px">
+      <div style="display:flex;padding:3px;border-radius:9px;background:var(--surface);border:1px solid var(--line)">
+        <button onClick="{{ setDark }}" style="border:0;cursor:pointer;padding:5px 10px;border-radius:6px;font:500 12px Geist,sans-serif;background:{{ thBg.dark }};color:{{ thFg.dark }}">Oscuro</button>
+        <button onClick="{{ setLight }}" style="border:0;cursor:pointer;padding:5px 10px;border-radius:6px;font:500 12px Geist,sans-serif;background:{{ thBg.light }};color:{{ thFg.light }}">Claro</button>
+      </div>
+      <span style="font:400 12px 'Geist Mono',monospace;color:var(--muted)">{{ clock }}</span>
+      <button style="border:1px solid var(--line-3);background:transparent;color:var(--text-2);cursor:pointer;font:500 13px Geist,sans-serif;padding:7px 12px;border-radius:8px" style-hover="background:var(--surface-2);color:var(--text-strong)">Salir</button>
+    </div>
+  </header>
+
+  <main style="flex:1;width:100%;max-width:1240px;margin:0 auto;padding:32px 28px 96px;box-sizing:border-box">
+
+    <sc-if value="{{ isInicio }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;flex-direction:column;gap:32px">
+        <sc-if value="{{ isGridView }}" hint-placeholder-val="{{ true }}">
+          <section style="display:flex;flex-direction:column;gap:16px">
+            <div style="display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:12px">
+              <div style="display:flex;align-items:baseline;gap:12px">
+                <h1 style="margin:0;font-size:26px;font-weight:600;letter-spacing:-.02em">Cámaras</h1>
+                <span style="font-size:14px;color:var(--muted)">{{ camSummary }}</span>
+              </div>
+              <button onClick="{{ goConfig }}" style="border:1px solid var(--line-3);background:transparent;color:var(--text-2);cursor:pointer;padding:7px 12px;border-radius:8px;font:500 13px Geist,sans-serif" style-hover="background:var(--surface-2);color:var(--text-strong)">Administrar</button>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px">
+              <sc-for list="{{ cams }}" as="k" hint-placeholder-count="4">
+                <button onClick="{{ k.open }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;gap:10px">
+                  <div style="position:relative;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000;border:1px solid {{ k.border }}" style-hover="border-color:var(--line-5)">
+                    <img src="thumb.png" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:{{ k.filter }};transform:{{ k.transform }}"/>
+                    <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.45) 0%,transparent 30%,transparent 60%,rgba(0,0,0,.7) 100%)"></div>
+                    <span style="position:absolute;top:12px;left:12px;display:inline-flex;align-items:center;gap:7px;padding:4px 10px;border-radius:999px;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);font-size:12px;font-weight:500;color:{{ k.fg }}"><span style="width:7px;height:7px;border-radius:50%;background:{{ k.fg }}"></span>{{ k.statusText }}</span>
+                    <span style="position:absolute;top:12px;right:12px;padding:4px 8px;border-radius:6px;background:rgba(0,0,0,.6);font:500 11px 'Geist Mono',monospace;color:{{ k.batteryColor }}">{{ k.battery }}%</span>
+                    <sc-if value="{{ k.offline }}" hint-placeholder-val="{{ false }}">
+                      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center">
+                        <span style="font-size:15px;font-weight:600;color:#fff">Sin conexión</span>
+                        <span style="font-size:13px;color:#c3c7cd">Batería baja · último contacto 12:05</span>
+                      </div>
+                    </sc-if>
+                    <div style="position:absolute;left:14px;bottom:12px;display:flex;flex-direction:column;gap:2px">
+                      <span style="font-size:16px;font-weight:600;color:#fff">{{ k.name }}</span>
+                      <span style="font-size:12px;color:#c3c7cd">{{ k.model }} · {{ k.ip }}</span>
+                    </div>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--muted);padding:0 2px">
+                    <span>Último movimiento <span style="font-family:'Geist Mono',monospace;color:var(--text)">{{ k.last }}</span></span>
+                    <span>{{ k.clips }} clips hoy</span>
+                  </div>
+                </button>
+              </sc-for>
+            </div>
+          </section>
+        </sc-if>
+        <sc-if value="{{ isSingleView }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:stretch">
+          <section style="flex:1 1 600px;min-width:0;display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+              <div style="display:flex;align-items:baseline;gap:10px">
+                <sc-if value="{{ multi }}" hint-placeholder-val="{{ false }}"><button onClick="{{ unfocus }}" style="border:1px solid var(--line-3);background:transparent;color:var(--text-2);cursor:pointer;padding:5px 10px;border-radius:8px;font:500 13px Geist,sans-serif" style-hover="color:var(--text-strong)">‹ Todas</button></sc-if>
+                <h1 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-.02em">{{ fc.name }}</h1>
+                <span style="font-size:13px;color:var(--muted)">{{ fc.model }}</span>
+              </div>
+              <span style="display:inline-flex;align-items:center;gap:8px;padding:5px 11px;border-radius:999px;font-size:12px;font-weight:500;background:{{ statusBg }};color:{{ statusFg }}"><span style="width:7px;height:7px;border-radius:50%;background:{{ statusFg }}"></span>{{ statusLabel }}</span>
+            </div>
+            <div style="position:relative;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000;border:1px solid var(--line)">
+              <img src="thumb.png" alt="Último fotograma" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:{{ liveFilter }};transform:scale(1.04);transition:filter .5s"/>
+              <sc-if value="{{ live }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute;top:14px;left:14px;display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:6px;background:rgba(0,0,0,.6);font:500 12px 'Geist Mono',monospace;color:#fff"><span style="width:7px;height:7px;border-radius:50%;background:var(--red);animation:pulse 1.4s infinite"></span>EN VIVO · {{ clock }}</div>
+                <div style="position:absolute;right:14px;bottom:14px;display:flex;gap:8px">
+                  <button onClick="{{ toggleLive }}" style="border:0;cursor:pointer;padding:9px 14px;border-radius:9px;background:rgba(0,0,0,.65);color:#fff;font:500 13px Geist,sans-serif;backdrop-filter:blur(6px)">Detener</button>
+                </div>
+              </sc-if>
+              <sc-if value="{{ notLive }}" hint-placeholder-val="{{ true }}">
+                <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:24px;background:linear-gradient(180deg,rgba(12,13,15,.35),rgba(12,13,15,.75))">
+                  <div style="font-size:18px;font-weight:600;letter-spacing:-.01em;color:#fff">La cámara está en reposo</div>
+                  <div style="max-width:380px;font-size:14px;line-height:1.5;color:#c3c7cd;text-wrap:pretty">Se activa sola al detectar movimiento. Despertarla ahora consume batería.</div>
+                  <button onClick="{{ toggleLive }}" style="margin-top:6px;border:0;cursor:pointer;padding:11px 18px;border-radius:10px;background:var(--text);color:var(--bg);font:600 14px Geist,sans-serif" style-hover="background:var(--text-strong)">Ver en vivo</button>
+                </div>
+                <div style="position:absolute;left:14px;bottom:14px;font:400 12px 'Geist Mono',monospace;color:#c3c7cd">Último fotograma · {{ lastTime }}</div>
+              </sc-if>
+            </div>
+          </section>
+
+          <aside style="flex:1 1 280px;max-width:100%;display:flex;flex-direction:column;gap:12px">
+            <div style="height:30px"></div>
+            <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:16px">
+              <div style="font-size:12px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Estado</div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <div style="display:flex;justify-content:space-between;font-size:14px"><span style="color:var(--text-2)">Batería</span><span style="font-family:'Geist Mono',monospace">{{ fc.battery }}%</span></div>
+                <div style="height:5px;border-radius:3px;background:var(--line-2);overflow:hidden"><div style="width:{{ fc.batteryPct }};height:100%;background:{{ fc.batteryColor }}"></div></div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <div style="display:flex;justify-content:space-between;font-size:14px"><span style="color:var(--text-2)">Almacenamiento</span><span style="font-family:'Geist Mono',monospace">4,2 / 32 GB</span></div>
+                <div style="height:5px;border-radius:3px;background:var(--line-2);overflow:hidden"><div style="width:13%;height:100%;background:var(--text)"></div></div>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:14px"><span style="color:var(--text-2)">Red</span><span style="font-family:'Geist Mono',monospace">{{ fc.ip }}</span></div>
+            </div>
+            <div style="flex:1;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:14px">
+              <div style="display:flex;justify-content:space-between;align-items:baseline">
+                <div style="font-size:12px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Actividad hoy</div>
+                <div style="font-size:13px;color:var(--muted)">{{ todayCount }} clips</div>
+              </div>
+              <div style="flex:1;min-height:80px;display:flex;align-items:flex-end;gap:3px">
+                <sc-for list="{{ hours }}" as="h" hint-placeholder-count="24">
+                  <div title="{{ h.title }}" style="flex:1;height:{{ h.pct }};min-height:3px;border-radius:2px;background:{{ h.color }}"></div>
+                </sc-for>
+              </div>
+              <div style="display:flex;justify-content:space-between;font:400 11px 'Geist Mono',monospace;color:var(--dim)"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div>
+              <div style="font-size:13px;color:var(--text-2);border-top:1px solid var(--line);padding-top:12px">Último movimiento a las <span style="font-family:'Geist Mono',monospace;color:var(--text)">{{ lastTime }}</span></div>
+            </div>
+          </aside>
+        </div>
+        </sc-if>
+
+        <section style="display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline">
+            <h2 style="margin:0;font-size:16px;font-weight:600">Últimos clips</h2>
+            <button onClick="{{ goGrab }}" style="border:0;background:none;cursor:pointer;color:var(--text-2);font:500 13px Geist,sans-serif" style-hover="color:var(--text-strong)">Ver todos →</button>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px">
+            <sc-for list="{{ recent }}" as="c" hint-placeholder-count="5">
+              <button onClick="{{ c.open }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;gap:9px">
+                <div style="position:relative;aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:var(--surface-2);border:1px solid var(--line)">
+                  <sc-if value="{{ c.ok }}" hint-placeholder-val="{{ true }}">
+                    <img src="thumb.png" alt="" style="width:100%;height:100%;object-fit:cover;display:block"/>
+                    <span style="position:absolute;right:7px;bottom:7px;padding:2px 6px;border-radius:5px;background:rgba(0,0,0,.72);font:500 11px 'Geist Mono',monospace;color:#fff">{{ c.dur }}</span>
+                  </sc-if>
+                  <sc-if value="{{ c.failed }}" hint-placeholder-val="{{ false }}">
+                    <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:repeating-linear-gradient(135deg,var(--surface-2) 0 8px,var(--stripe) 8px 16px)">
+                      <span style="font-size:13px;font-weight:500;color:var(--red-text)">No se pudo grabar</span>
+                      <span style="font-size:11px;color:var(--muted)">Cámara sin respuesta</span>
+                    </div>
+                  </sc-if>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:baseline;padding:0 2px">
+                  <span style="font:500 14px 'Geist Mono',monospace">{{ c.time }}</span>
+                  <span style="font-size:12px;color:var(--muted)">{{ c.meta }}</span>
+                </div>
+              </button>
+            </sc-for>
+          </div>
+        </section>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isGrab }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:24px">
+        <div style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <h1 style="margin:0;font-size:26px;font-weight:600;letter-spacing:-.02em">Grabaciones</h1>
+            <div style="font-size:14px;color:var(--muted)">{{ totalCount }} clips guardados · se conservan {{ s.ret }} días</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <div style="display:flex;padding:3px;border-radius:10px;background:var(--surface);border:1px solid var(--line)">
+              <button onClick="{{ fAll }}" style="border:0;cursor:pointer;padding:7px 12px;border-radius:7px;font:500 13px Geist,sans-serif;background:{{ fBg.all }};color:{{ fFg.all }}">Todos · {{ dayCount }}</button>
+              <button onClick="{{ fFail }}" style="border:0;cursor:pointer;padding:7px 12px;border-radius:7px;font:500 13px Geist,sans-serif;background:{{ fBg.fail }};color:{{ fFg.fail }}">Fallidos · {{ failCount }}</button>
+            </div>
+            <div style="display:flex;align-items:center;border-radius:10px;background:var(--surface);border:1px solid var(--line)">
+              <button onClick="{{ prevDay }}" style="border:0;background:none;cursor:pointer;color:var(--text-2);font:500 16px Geist,sans-serif;padding:7px 12px" style-hover="color:var(--text-strong)">‹</button>
+              <span style="min-width:150px;text-align:center;font-size:14px;font-weight:500">{{ dayLabel }}</span>
+              <button onClick="{{ nextDay }}" disabled="{{ isToday }}" style="border:0;background:none;cursor:pointer;color:var(--text-2);font:500 16px Geist,sans-serif;padding:7px 12px;opacity:{{ nextOpacity }}" style-hover="color:var(--text-strong)">›</button>
+            </div>
+          </div>
+        </div>
+
+        <sc-if value="{{ multi }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <sc-for list="{{ camChips }}" as="ch" hint-placeholder-count="5">
+              <button onClick="{{ ch.pick }}" style="border:1px solid {{ ch.border }};cursor:pointer;padding:6px 12px;border-radius:999px;font:500 13px Geist,sans-serif;background:{{ ch.bg }};color:{{ ch.fg }}">{{ ch.label }}</button>
+            </sc-for>
+          </div>
+        </sc-if>
+        <div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px 10px;display:flex;flex-direction:column;gap:8px">
+          <div style="position:relative;height:28px;border-radius:6px;background:repeating-linear-gradient(90deg,var(--surface-3) 0 calc(100%/24 - 1px),var(--line-2) calc(100%/24 - 1px) calc(100%/24))">
+            <sc-for list="{{ ticks }}" as="t" hint-placeholder-count="0">
+              <button onClick="{{ t.open }}" title="{{ t.time }}" style="all:unset;cursor:pointer;position:absolute;top:4px;bottom:4px;width:3px;border-radius:2px;left:{{ t.left }};background:{{ t.color }}"></button>
+            </sc-for>
+          </div>
+          <div style="display:flex;justify-content:space-between;font:400 11px 'Geist Mono',monospace;color:var(--dim)"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div>
+        </div>
+
+        <sc-if value="{{ emptyDay }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:60px 20px;text-align:center;color:var(--muted);font-size:14px;border:1px dashed var(--line-3);border-radius:14px">No hay clips para mostrar este día.</div>
+        </sc-if>
+
+        <sc-for list="{{ groups }}" as="g" hint-placeholder-count="2">
+          <section style="display:grid;grid-template-columns:64px minmax(0,1fr);gap:16px">
+            <div style="padding-top:2px;font:500 13px 'Geist Mono',monospace;color:var(--muted);position:sticky;top:76px;align-self:start">{{ g.label }}</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px">
+              <sc-for list="{{ g.clips }}" as="c" hint-placeholder-count="4">
+                <button onClick="{{ c.open }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;gap:8px">
+                  <div style="position:relative;aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:var(--surface-2);border:1px solid var(--line)">
+                    <sc-if value="{{ c.ok }}" hint-placeholder-val="{{ true }}">
+                      <img src="thumb.png" alt="" style="width:100%;height:100%;object-fit:cover;display:block"/>
+                      <span style="position:absolute;right:7px;bottom:7px;padding:2px 6px;border-radius:5px;background:rgba(0,0,0,.72);font:500 11px 'Geist Mono',monospace;color:#fff">{{ c.dur }}</span>
+                    </sc-if>
+                    <sc-if value="{{ c.failed }}" hint-placeholder-val="{{ false }}">
+                      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:repeating-linear-gradient(135deg,var(--surface-2) 0 8px,var(--stripe) 8px 16px)">
+                        <span style="font-size:13px;font-weight:500;color:var(--red-text)">No se pudo grabar</span>
+                        <span style="font-size:11px;color:var(--muted)">Cámara sin respuesta</span>
+                      </div>
+                    </sc-if>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;padding:0 2px">
+                    <span style="font:500 14px 'Geist Mono',monospace">{{ c.time }}</span>
+                    <span style="font-size:12px;color:var(--muted)">{{ c.cam }}</span>
+                  </div>
+                </button>
+              </sc-for>
+            </div>
+          </section>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isConfig }}" hint-placeholder-val="{{ false }}">
+      <div style="max-width:920px;display:flex;flex-direction:column;gap:40px">
+        <h1 style="margin:0;font-size:26px;font-weight:600;letter-spacing:-.02em">Configuración</h1>
+
+        <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:24px 40px">
+          <div style="display:flex;flex-direction:column;gap:6px;max-width:300px">
+            <h2 style="margin:0;font-size:16px;font-weight:600">Grabación</h2>
+            <p style="margin:0;font-size:14px;line-height:1.5;color:var(--muted);text-wrap:pretty">Cuánto graba cada vez que detecta movimiento y cuánto tiempo se guardan los clips.</p>
+          </div>
+          <div style="grid-column:span 2;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:14px">
+            <sc-for list="{{ fields }}" as="f" hint-placeholder-count="3">
+              <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 24px;padding:18px 20px;border-top:{{ f.border }}">
+                <div style="flex:1 1 240px;display:flex;flex-direction:column;gap:4px">
+                  <div style="font-size:14px;font-weight:500">{{ f.label }}</div>
+                  <div style="font-size:13px;line-height:1.45;color:var(--muted);text-wrap:pretty">{{ f.hint }}</div>
+                </div>
+                <div style="display:flex;align-items:center;border:1px solid var(--line-4);border-radius:10px;background:var(--input);overflow:hidden">
+                  <button onClick="{{ f.dec }}" style="border:0;background:none;cursor:pointer;color:var(--text-2);width:38px;height:40px;font:400 18px Geist,sans-serif" style-hover="background:var(--surface-3);color:var(--text-strong)">−</button>
+                  <input type="number" value="{{ f.value }}" onChange="{{ f.onChange }}" style="width:52px;border:0;background:none;outline:none;text-align:right;font:500 15px 'Geist Mono',monospace;padding:0"/>
+                  <span style="padding:0 6px 0 6px;font-size:13px;color:var(--muted);min-width:28px">{{ f.unit }}</span>
+                  <button onClick="{{ f.inc }}" style="border:0;background:none;cursor:pointer;color:var(--text-2);width:38px;height:40px;font:400 18px Geist,sans-serif" style-hover="background:var(--surface-3);color:var(--text-strong)">+</button>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+
+        <div style="height:1px;background:var(--line)"></div>
+
+        <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:24px 40px">
+          <div style="display:flex;flex-direction:column;gap:12px;max-width:300px;align-items:flex-start">
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <h2 style="margin:0;font-size:16px;font-weight:600">Cámaras</h2>
+              <p style="margin:0;font-size:14px;line-height:1.5;color:var(--muted);text-wrap:pretty">{{ camCount }} conectadas por DVRIP en tu red local.</p>
+            </div>
+            <button style="border:1px solid var(--line-4);background:var(--surface);color:var(--text);cursor:pointer;padding:9px 14px;border-radius:10px;font:500 13px Geist,sans-serif" style-hover="background:var(--surface-3)">+ Agregar cámara</button>
+          </div>
+          <div style="grid-column:span 2;min-width:0;display:flex;flex-direction:column;gap:10px">
+            <sc-for list="{{ cams }}" as="k" hint-placeholder-count="4">
+              <div style="background:var(--surface);border:1px solid {{ k.cfgBorder }};border-radius:14px;overflow:hidden">
+                <button onClick="{{ k.toggle }}" style="all:unset;box-sizing:border-box;width:100%;cursor:pointer;display:flex;align-items:center;gap:14px;padding:14px 18px" style-hover="background:var(--surface-2)">
+                  <img src="thumb.png" alt="" style="width:72px;height:42px;object-fit:cover;border-radius:6px;border:1px solid var(--line-3);filter:{{ k.filter }}"/>
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+                    <div style="font-size:15px;font-weight:600">{{ k.name }}</div>
+                    <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)"><span style="width:6px;height:6px;border-radius:50%;background:{{ k.fg }}"></span>{{ k.statusText }} · <span style="font-family:'Geist Mono',monospace">{{ k.ip }}</span></div>
+                  </div>
+                  <span style="font:500 12px 'Geist Mono',monospace;color:{{ k.batteryColor }}">{{ k.battery }}%</span>
+                  <span style="width:20px;text-align:center;color:var(--muted);font-size:14px">{{ k.chev }}</span>
+                </button>
+                <sc-if value="{{ k.expanded }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;border-top:1px solid var(--line)">
+                    <label style="display:flex;flex-direction:column;gap:7px"><span style="font-size:13px;font-weight:500;color:var(--text-2)">Nombre</span><input value="{{ k.name }}" onChange="{{ k.setName }}" style="height:40px;box-sizing:border-box;padding:0 12px;border-radius:9px;border:1px solid var(--line-4);background:var(--input);outline:none;font-size:14px" style-focus="border-color:var(--dim)"/></label>
+                    <label style="display:flex;flex-direction:column;gap:7px"><span style="font-size:13px;font-weight:500;color:var(--text-2)">Modelo</span><input value="{{ k.model }}" onChange="{{ k.setModel }}" style="height:40px;box-sizing:border-box;padding:0 12px;border-radius:9px;border:1px solid var(--line-4);background:var(--input);outline:none;font-size:14px" style-focus="border-color:var(--dim)"/></label>
+                    <label style="display:flex;flex-direction:column;gap:7px"><span style="font-size:13px;font-weight:500;color:var(--text-2)">Dirección IP</span><input value="{{ k.ip }}" onChange="{{ k.setIp }}" style="height:40px;box-sizing:border-box;padding:0 12px;border-radius:9px;border:1px solid var(--line-4);background:var(--input);outline:none;font:400 14px 'Geist Mono',monospace" style-focus="border-color:var(--dim)"/></label>
+                    <label style="display:flex;flex-direction:column;gap:7px"><span style="font-size:13px;font-weight:500;color:var(--text-2)">Puerto DVRIP</span><input value="{{ k.port }}" onChange="{{ k.setPort }}" style="height:40px;box-sizing:border-box;padding:0 12px;border-radius:9px;border:1px solid var(--line-4);background:var(--input);outline:none;font:400 14px 'Geist Mono',monospace" style-focus="border-color:var(--dim)"/></label>
+                    <label style="display:flex;flex-direction:column;gap:7px"><span style="font-size:13px;font-weight:500;color:var(--text-2)">Usuario</span><input value="{{ k.user }}" onChange="{{ k.setUser }}" style="height:40px;box-sizing:border-box;padding:0 12px;border-radius:9px;border:1px solid var(--line-4);background:var(--input);outline:none;font-size:14px" style-focus="border-color:var(--dim)"/></label>
+                    <label style="display:flex;flex-direction:column;gap:7px"><span style="font-size:13px;font-weight:500;color:var(--text-2)">Contraseña</span><input type="password" placeholder="••••••••  (sin cambios)" onChange="{{ k.setPass }}" style="height:40px;box-sizing:border-box;padding:0 12px;border-radius:9px;border:1px solid var(--line-4);background:var(--input);outline:none;font-size:14px" style-focus="border-color:var(--dim)"/></label>
+                    <div style="grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 24px;padding-top:4px">
+                      <div style="display:flex;flex-direction:column;gap:3px">
+                        <span style="font-size:14px;font-weight:500">Sensibilidad al movimiento</span>
+                        <span style="font-size:13px;color:var(--muted)">Más alta detecta antes, pero graba más falsos positivos.</span>
+                      </div>
+                      <div style="display:flex;padding:3px;border-radius:10px;background:var(--input);border:1px solid var(--line-4)">
+                        <sc-for list="{{ k.sens }}" as="o" hint-placeholder-count="3">
+                          <button onClick="{{ o.pick }}" style="border:0;cursor:pointer;padding:7px 12px;border-radius:7px;font:500 13px Geist,sans-serif;background:{{ o.bg }};color:{{ o.fg }}">{{ o.label }}</button>
+                        </sc-for>
+                      </div>
+                    </div>
+                    <div style="grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:24px">
+                      <div style="display:flex;flex-direction:column;gap:3px">
+                        <span style="font-size:14px;font-weight:500">Grabar al detectar movimiento</span>
+                        <span style="font-size:13px;color:var(--muted)">Desactívala para dejar de grabar sin eliminar la cámara.</span>
+                      </div>
+                      <button onClick="{{ k.toggleRec }}" style="flex:none;border:0;cursor:pointer;width:42px;height:24px;border-radius:12px;padding:3px;box-sizing:border-box;display:flex;justify-content:{{ k.recJustify }};background:{{ k.recTrack }};transition:background .2s"><span style="width:18px;height:18px;border-radius:50%;background:#fff"></span></button>
+                    </div>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-top:1px solid var(--line);background:var(--foot)">
+                    <button style="border:0;background:none;cursor:pointer;color:var(--red-text);font:500 13px Geist,sans-serif;padding:0">Eliminar cámara</button>
+                    <button onClick="{{ k.test }}" style="border:1px solid var(--line-4);background:transparent;color:var(--text);cursor:pointer;padding:7px 12px;border-radius:8px;font:500 13px Geist,sans-serif" style-hover="background:var(--surface-3)">{{ k.testLabel }}</button>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+      </div>
+    </sc-if>
+  </main>
+
+  <sc-if value="{{ dirty }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:30;display:flex;align-items:center;gap:16px;padding:10px 10px 10px 18px;border-radius:14px;background:var(--surface-3);border:1px solid var(--line-4);box-shadow:0 12px 40px rgba(0,0,0,.5)">
+      <span style="font-size:14px;color:var(--text-2);white-space:nowrap">Cambios sin guardar</span>
+      <div style="display:flex;gap:6px">
+        <button onClick="{{ discard }}" style="border:0;background:none;cursor:pointer;color:var(--text-2);padding:8px 12px;border-radius:9px;font:500 13px Geist,sans-serif" style-hover="color:var(--text-strong)">Descartar</button>
+        <button onClick="{{ save }}" style="border:0;background:var(--text);color:var(--bg);cursor:pointer;padding:8px 14px;border-radius:9px;font:600 13px Geist,sans-serif" style-hover="background:var(--text-strong)">Guardar</button>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:30;padding:11px 16px;border-radius:12px;background:var(--surface-3);border:1px solid var(--line-4);font-size:14px;color:var(--text);display:flex;align-items:center;gap:8px"><span style="width:7px;height:7px;border-radius:50%;background:var(--green)"></span>{{ toast }}</div>
+  </sc-if>
+
+  <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ close }}" style="position:fixed;inset:0;z-index:50;background:var(--scrim);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:24px">
+      <div onClick="{{ stop }}" style="width:100%;max-width:960px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <div style="display:flex;align-items:baseline;gap:12px">
+            <span style="font:500 18px 'Geist Mono',monospace">{{ sel.time }}</span>
+            <span style="font-size:14px;color:var(--muted)">{{ sel.cam }} · {{ sel.day }}</span>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button onClick="{{ prevClip }}" style="border:1px solid var(--line-4);background:var(--surface);color:var(--text);cursor:pointer;padding:7px 12px;border-radius:8px;font:500 13px Geist,sans-serif">‹ Anterior</button>
+            <button onClick="{{ nextClip }}" style="border:1px solid var(--line-4);background:var(--surface);color:var(--text);cursor:pointer;padding:7px 12px;border-radius:8px;font:500 13px Geist,sans-serif">Siguiente ›</button>
+            <button onClick="{{ close }}" style="border:0;background:var(--text);color:var(--bg);cursor:pointer;padding:7px 12px;border-radius:8px;font:600 13px Geist,sans-serif">Cerrar</button>
+          </div>
+        </div>
+        <div style="position:relative;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000;border:1px solid var(--line)">
+          <sc-if value="{{ sel.ok }}" hint-placeholder-val="{{ true }}">
+            <img src="thumb.png" alt="" style="width:100%;height:100%;object-fit:cover;display:block"/>
+            <div style="position:absolute;left:0;right:0;bottom:0;padding:16px;display:flex;align-items:center;gap:14px;background:linear-gradient(0deg,rgba(0,0,0,.7),transparent)">
+              <button style="border:0;cursor:pointer;width:38px;height:38px;border-radius:50%;background:var(--text);color:var(--bg);font:600 13px Geist,sans-serif">▶</button>
+              <div style="flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.25)"><div style="width:0%;height:100%"></div></div>
+              <span style="font:500 12px 'Geist Mono',monospace;color:#fff">0:00 / {{ sel.dur }}</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ sel.failed }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;padding:24px;background:repeating-linear-gradient(135deg,var(--foot) 0 12px,var(--surface-2) 12px 24px)">
+              <span style="font-size:17px;font-weight:600;color:var(--red-text)">No se pudo grabar este clip</span>
+              <span style="font-size:14px;color:var(--muted);max-width:380px">La cámara detectó movimiento pero no respondió a tiempo. Revisa la señal Wi-Fi o la batería.</span>
+            </div>
+          </sc-if>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px">
+          <button style="border:1px solid var(--line-4);background:transparent;color:var(--text);cursor:pointer;padding:8px 14px;border-radius:9px;font:500 13px Geist,sans-serif">Descargar</button>
+          <button style="border:1px solid var(--danger-line);background:transparent;color:var(--red-text);cursor:pointer;padding:8px 14px;border-radius:9px;font:500 13px Geist,sans-serif">Eliminar</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;tema&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;oscuro&quot;,&quot;claro&quot;],&quot;default&quot;:&quot;oscuro&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;startTab&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;inicio&quot;,&quot;grab&quot;,&quot;config&quot;],&quot;default&quot;:&quot;inicio&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;vista&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;varias&quot;,&quot;una&quot;],&quot;default&quot;:&quot;varias&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  state = { tab: this.props.startTab || 'inicio', live: false, day: 0, filter: 'all', sel: null,
+    s: { tope: 60, enfr: 10, ret: 30 }, saved: { tope: 60, enfr: 10, ret: 30 },
+    cams: [
+      { name: 'Entrada', model: 'iCSee', ip: '192.168.1.86', port: '34567', user: 'ctdn', status: 'idle', battery: 78, sens: 1, rec: true },
+      { name: 'Patio', model: 'iCSee', ip: '192.168.1.87', port: '34567', user: 'ctdn', status: 'rec', battery: 64, sens: 2, rec: true },
+      { name: 'Garaje', model: 'iCSee', ip: '192.168.1.88', port: '34567', user: 'ctdn', status: 'idle', battery: 91, sens: 1, rec: true },
+      { name: 'Pasillo', model: 'iCSee', ip: '192.168.1.90', port: '34567', user: 'ctdn', status: 'offline', battery: 6, sens: 0, rec: true }
+    ], savedCams: null, openCam: 0, focus: null, camF: 'all',
+    now: new Date(2026, 9, 7, 14, 32, 10), toast: '', testing: 0 };
+  componentDidMount() {
+    this.applyTheme();
+    this.setState({ savedCams: JSON.parse(JSON.stringify(this.state.cams)) });
+    this.t = setInterval(() => this.setState(s => ({ now: new Date(s.now.getTime() + 1000) })), 1000);
+  }
+  theme() { return this.state.theme || this.props.tema || 'oscuro'; }
+  applyTheme() { document.body.classList.toggle('light', this.theme() === 'claro'); }
+  componentDidUpdate() { this.applyTheme(); }
+  componentWillUnmount() { clearInterval(this.t); clearTimeout(this.tt); }
+  genDay(off) {
+    let seed = 7 + Math.abs(off) * 131; const r = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+    const n = off === 0 ? 17 : 6 + Math.floor(r() * 14);
+    const limit = off === 0 ? 14 * 3600 + 32 * 60 : 86400;
+    const hubs = [1.2, 7.5, 8.2, 13.1, 19.4, 21.8].map(h => h * 3600).filter(h => h < limit - 1800);
+    const set = new Set();
+    while (set.size < n) {
+      const c = r() < 0.6 ? hubs[Math.floor(r() * hubs.length)] : r() * limit;
+      let s = Math.floor(c + (r() - 0.5) * 2400);
+      if (s < 0 || s > limit - 120) continue;
+      set.add(s);
+    }
+    const out = [...set].sort((a, b) => b - a);
+    return out.map((sec, i) => ({ sec, failed: off === 0 ? i === 2 : r() < 0.06, d: 63 + Math.floor(r() * 3) }));
+  }
+  fmt(sec) { const p = n => String(n).padStart(2, '0'); return p(Math.floor(sec / 3600)) + ':' + p(Math.floor(sec / 60) % 60) + ':' + p(sec % 60); }
+  dayName(off) {
+    if (off === 0) return 'Hoy'; if (off === -1) return 'Ayer';
+    const d = new Date(2026, 9, 7 + off);
+    return d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
+  }
+  decorate(list, off) {
+    const nowSec = 14 * 3600 + 32 * 60;
+    return list.map((c, i) => ({
+      ...c, time: this.fmt(c.sec), dur: '1:0' + (c.d - 60), ok: !c.failed, idx: i, off,
+      cam: this.camNames[(c.sec * 7) % this.camNames.length], get meta() { return this.cam + (this.ago ? ' · ' + this.ago : ''); }, ago: off === 0 ? (() => { const m = Math.round((nowSec - c.sec) / 60); return m < 60 ? 'hace ' + m + ' min' : 'hace ' + Math.round(m / 60) + ' h'; })() : '',
+      open: () => this.setState({ sel: { off, idx: i } })
+    }));
+  }
+  renderVals() {
+    const st = this.state, tab = st.tab;
+    const multi = (this.props.vista ?? 'varias') !== 'una';
+    const camsAll = multi ? st.cams : st.cams.slice(0, 1);
+    this.camNames = camsAll.filter(k => k.status !== 'offline').map(k => k.name);
+    const on = 'var(--line)', onF = 'var(--text-strong)', off = 'transparent', offF = 'var(--muted)';
+    const today = this.decorate(this.genDay(0), 0);
+    const dayAll = this.decorate(this.genDay(st.day), st.day).filter(c => !multi || st.camF === 'all' || c.cam === st.camF);
+    const dayList = st.filter === 'fail' ? dayAll.filter(c => c.failed) : dayAll;
+    const groups = [];
+    dayList.forEach(c => {
+      const h = String(Math.floor(c.sec / 3600)).padStart(2, '0') + ':00';
+      let g = groups[groups.length - 1]; if (!g || g.label !== h) { g = { label: h, clips: [] }; groups.push(g); } g.clips.push(c);
+    });
+    const counts = Array(24).fill(0); today.forEach(c => counts[Math.floor(c.sec / 3600)]++);
+    const max = Math.max(...counts, 1);
+    const fieldDefs = [
+      { k: 'tope', label: 'Duración máxima por clip', hint: 'Más corto ahorra batería: la cámara no se duerme mientras graba.', unit: 's', step: 10, min: 10, max: 600 },
+      { k: 'enfr', label: 'Pausa entre activaciones', hint: 'Tiempo de espera antes de volver a grabar tras un clip.', unit: 's', step: 5, min: 0, max: 300 },
+      { k: 'ret', label: 'Conservar clips durante', hint: 'Los más antiguos se borran automáticamente una vez al día.', unit: 'días', step: 1, min: 1, max: 365 }
+    ];
+    const setS = (k, v, f) => this.setState(s => ({ s: { ...s.s, [k]: Math.max(f.min, Math.min(f.max, v)) } }));
+    const fields = fieldDefs.map((f, i) => ({ ...f, value: st.s[f.k], border: i ? '1px solid var(--line)' : '0',
+      dec: () => setS(f.k, st.s[f.k] - f.step, f), inc: () => setS(f.k, st.s[f.k] + f.step, f),
+      onChange: e => setS(f.k, parseInt(e.target.value || '0', 10), f) }));
+    const dirty = JSON.stringify(st.s) !== JSON.stringify(st.saved) || (st.savedCams && JSON.stringify(st.cams) !== JSON.stringify(st.savedCams)) || !!st.passChanged;
+    const selList = st.sel ? this.decorate(this.genDay(st.sel.off), st.sel.off) : [];
+    const sel = st.sel ? { ...selList[st.sel.idx], day: this.dayName(st.sel.off) } : null;
+    const moveSel = d => this.setState(s => ({ sel: { ...s.sel, idx: Math.max(0, Math.min(selList.length - 1, s.sel.idx + d)) } }));
+    const upd = (i, patch) => this.setState(s => ({ cams: s.cams.map((k, j) => j === i ? { ...k, ...patch } : k) }));
+    const setCam = k => e => upd(0, { [k]: e.target.value });
+    const stTxt = { idle: 'En reposo', rec: 'Grabando', offline: 'Sin conexión' };
+    const stFg = { idle: '#c3c7cd', rec: '#ff8a7d', offline: '#f2b84b' };
+    const tf = ['scale(1.04)', 'scaleX(-1) scale(1.18)', 'scale(1.4) translate(6%,5%)', 'scale(1.25) translate(-7%,-4%)'];
+    const bc = b => b < 15 ? 'var(--red-text)' : b < 40 ? 'var(--amber)' : 'var(--green)';
+    const camView = camsAll.map((k, i) => ({ ...k, i,
+      statusText: k.rec ? stTxt[k.status] : 'Pausada', fg: k.rec ? stFg[k.status] : 'var(--dim)', offline: k.status === 'offline',
+      filter: k.status === 'offline' ? 'grayscale(1) blur(3px) brightness(.3)' : k.status === 'rec' ? 'none' : 'grayscale(1) brightness(.8)',
+      transform: tf[i % 4], border: k.status === 'rec' ? 'rgba(255,85,68,.5)' : 'var(--line)',
+      batteryColor: bc(k.battery), batteryPct: k.battery + '%',
+      last: k.status === 'offline' ? '12:05:41' : (today.find(c => c.cam === k.name) || {}).time || '—',
+      clips: today.filter(c => c.cam === k.name).length,
+      open: () => this.setState({ focus: i, live: false }),
+      expanded: st.openCam === i, chev: st.openCam === i ? '−' : '+', cfgBorder: st.openCam === i ? 'var(--line-4)' : 'var(--line)',
+      toggle: () => this.setState(s => ({ openCam: s.openCam === i ? null : i })),
+      setName: e => upd(i, { name: e.target.value }), setModel: e => upd(i, { model: e.target.value }), setIp: e => upd(i, { ip: e.target.value }),
+      setPort: e => upd(i, { port: e.target.value }), setUser: e => upd(i, { user: e.target.value }), setPass: e => this.setState({ passChanged: !!e.target.value }),
+      sens: ['Baja', 'Media', 'Alta'].map((l, j) => ({ label: l, bg: k.sens === j ? 'var(--line-2)' : 'transparent', fg: k.sens === j ? 'var(--text-strong)' : 'var(--muted)', pick: () => upd(i, { sens: j }) })),
+      toggleRec: () => upd(i, { rec: !k.rec }), recTrack: k.rec ? 'var(--green)' : 'var(--line-4)', recJustify: k.rec ? 'flex-end' : 'flex-start',
+      testLabel: st.testing === i + 1 ? 'Probando…' : st.testing === -(i + 1) ? (k.status === 'offline' ? 'Sin respuesta' : 'Conexión OK') : 'Probar conexión',
+      test: () => { this.setState({ testing: i + 1 }); setTimeout(() => this.setState({ testing: -(i + 1) }), 900); setTimeout(() => this.setState({ testing: 0 }), 3000); }
+    }));
+    const fc = camView[multi ? (st.focus ?? 0) : 0];
+    const nRec = camsAll.filter(k => k.status === 'rec').length, nOff = camsAll.filter(k => k.status === 'offline').length;
+    const flash = msg => { clearTimeout(this.tt); this.setState({ toast: msg }); this.tt = setTimeout(() => this.setState({ toast: '' }), 2200); };
+    let total = 0; for (let o = 0; o > -st.s.ret; o--) total += this.genDay(o).length;
+    return {
+      thBg: { dark: this.theme() === 'oscuro' ? 'var(--line-2)' : 'transparent', light: this.theme() === 'claro' ? 'var(--line-2)' : 'transparent' },
+      thFg: { dark: this.theme() === 'oscuro' ? 'var(--text-strong)' : 'var(--muted)', light: this.theme() === 'claro' ? 'var(--text-strong)' : 'var(--muted)' },
+      setDark: () => this.setState({ theme: 'oscuro' }), setLight: () => this.setState({ theme: 'claro' }),
+      isInicio: tab === 'inicio', isGrab: tab === 'grab', isConfig: tab === 'config',
+      tabBg: { inicio: tab === 'inicio' ? on : off, grab: tab === 'grab' ? on : off, config: tab === 'config' ? on : off },
+      tabFg: { inicio: tab === 'inicio' ? onF : offF, grab: tab === 'grab' ? onF : offF, config: tab === 'config' ? onF : offF },
+      goInicio: () => this.setState({ tab: 'inicio', focus: null }), goGrab: () => this.setState({ tab: 'grab', day: 0 }), goConfig: () => this.setState({ tab: 'config' }),
+      clock: this.fmt(st.now.getHours() * 3600 + st.now.getMinutes() * 60 + st.now.getSeconds()),
+      live: st.live, notLive: !st.live, toggleLive: () => this.setState(s => ({ live: !s.live })),
+      liveFilter: st.live ? 'none' : 'blur(6px) brightness(.55) grayscale(1)',
+      statusLabel: st.live ? 'Transmitiendo' : 'En reposo',
+      statusBg: st.live ? 'rgba(255,85,68,.12)' : 'var(--surface-2)', statusFg: st.live ? 'var(--red-text)' : 'var(--idle)',
+      lastTime: today[0].time, todayCount: today.length,
+      hours: counts.map((c, h) => ({ pct: (c / max * 100) + '%', color: c ? 'var(--text-2)' : 'var(--line-2)', title: h + ':00 · ' + c + ' clips' })),
+      recent: today.slice(0, 5),
+      totalCount: total, dayCount: dayAll.length, failCount: dayAll.filter(c => c.failed).length,
+      fAll: () => this.setState({ filter: 'all' }), fFail: () => this.setState({ filter: 'fail' }),
+      fBg: { all: st.filter === 'all' ? 'var(--line-2)' : 'transparent', fail: st.filter === 'fail' ? 'var(--line-2)' : 'transparent' },
+      fFg: { all: st.filter === 'all' ? 'var(--text-strong)' : 'var(--muted)', fail: st.filter === 'fail' ? 'var(--text-strong)' : 'var(--muted)' },
+      dayLabel: this.dayName(st.day), isToday: st.day === 0, nextOpacity: st.day === 0 ? 0.3 : 1,
+      prevDay: () => this.setState(s => ({ day: Math.max(-st.s.ret + 1, s.day - 1) })), nextDay: () => this.setState(s => ({ day: Math.min(0, s.day + 1) })),
+      ticks: dayAll.map(c => ({ left: (c.sec / 86400 * 100) + '%', color: c.failed ? 'var(--red)' : 'var(--text)', time: c.time, open: c.open })),
+      groups, emptyDay: groups.length === 0,
+      s: st.s, fields, cam: st.cams[0], cams: camView, fc, multi,
+      isGridView: tab === 'inicio' && multi && st.focus == null, isSingleView: !multi || st.focus != null,
+      unfocus: () => this.setState({ focus: null, live: false }),
+      camSummary: camsAll.length + ' cámaras' + (nRec ? ' · ' + nRec + ' grabando' : '') + (nOff ? ' · ' + nOff + ' sin conexión' : ''),
+      camCount: camsAll.length === 1 ? '1 cámara' : camsAll.length + ' cámaras',
+      camChips: [{ n: 'all', label: 'Todas' }, ...camsAll.map(k => ({ n: k.name, label: k.name }))].map(o => ({ label: o.label, bg: st.camF === o.n ? 'var(--text)' : 'transparent', fg: st.camF === o.n ? 'var(--bg)' : 'var(--text-2)', border: st.camF === o.n ? 'var(--text)' : 'var(--line-4)', pick: () => this.setState({ camF: o.n }) })),
+      setName: setCam('name'), setIp: setCam('ip'), setPort: setCam('port'), setUser: setCam('user'), setPass: e => this.setState({ passChanged: !!e.target.value }),
+      testLabel: st.testing === 1 ? 'Probando…' : st.testing === 2 ? 'Conexión OK' : 'Probar conexión',
+      testConn: () => { this.setState({ testing: 1 }); setTimeout(() => this.setState({ testing: 2 }), 900); setTimeout(() => this.setState({ testing: 0 }), 3000); },
+      dirty: dirty && !st.toast, toast: st.toast,
+      save: () => { this.setState(s => ({ saved: { ...s.s }, savedCams: JSON.parse(JSON.stringify(s.cams)), passChanged: false })); flash('Cambios guardados'); },
+      discard: () => this.setState(s => ({ s: { ...s.saved }, cams: JSON.parse(JSON.stringify(s.savedCams)), passChanged: false })),
+      hasSel: !!sel, sel: sel || {}, close: () => this.setState({ sel: null }), stop: e => e.stopPropagation(),
+      prevClip: () => moveSel(1), nextClip: () => moveSel(-1)
+    };
+  }
+}
+</script>
+</body>
+</html>

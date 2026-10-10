@@ -404,3 +404,11 @@ FodyWeavers.xsd
 
 
 # End of https://mrkandreev.name/snippets/gitignore-generator/#react,Csharp,.net
+
+# CamGuard
+.env
+backups/
+backend/src/CamGuard.Api/data/
+poc/clips/
+poc/go2rtc.poc.yaml
+frontend/dist/
