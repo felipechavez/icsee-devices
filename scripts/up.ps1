@@ -90,9 +90,26 @@ if ($envValues['GO2RTC_PASSWORD'] -notmatch '^[A-Za-z0-9]+$') {
 if ($envValues['DB_PASSWORD'] -notmatch '^[A-Za-z0-9]+$') {
     Fail 'DB_PASSWORD solo admite letras y números (va dentro de la cadena de conexión).'
 }
+# HOST_IP es el candidato WebRTC que go2rtc anuncia al navegador. Si el router le dio otra IP a
+# este equipo, el vivo queda en "Conectando…": se reemplaza por la IP de la interfaz con la ruta
+# por defecto. Una IP que sigue siendo de este equipo (p. ej. la de Tailscale) se respeta.
 $localIps = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue).IPAddress
 if ($localIps -and $envValues['HOST_IP'] -notin $localIps) {
-    Write-Host "AVISO: HOST_IP=$($envValues['HOST_IP']) no es una IP de este equipo ($($localIps -join ', ')). El video en vivo (WebRTC) no va a conectar." -ForegroundColor Yellow
+    $lanIp = Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue |
+        Sort-Object RouteMetric |
+        ForEach-Object { (Get-NetIPAddress -InterfaceIndex $_.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue).IPAddress } |
+        Where-Object { $_ -and $_ -notlike '169.254.*' } |
+        Select-Object -First 1
+    if ($lanIp) {
+        $envPath = Join-Path $root '.env'
+        $content = [IO.File]::ReadAllText($envPath)
+        $content = [regex]::Replace($content, '(?m)^HOST_IP=.*$', "HOST_IP=$lanIp")
+        [IO.File]::WriteAllText($envPath, $content)
+        Write-Host "HOST_IP cambió de $($envValues['HOST_IP']) a $lanIp (IP actual de este equipo); se actualizó .env." -ForegroundColor Yellow
+        $envValues['HOST_IP'] = $lanIp
+    } else {
+        Write-Host "AVISO: HOST_IP=$($envValues['HOST_IP']) no es una IP de este equipo ($($localIps -join ', ')). El video en vivo (WebRTC) no va a conectar." -ForegroundColor Yellow
+    }
 }
 if ($envValues['R2_ENDPOINT'] -match '<account-id>') {
     Fail 'R2_ENDPOINT todavía tiene el valor de ejemplo.'

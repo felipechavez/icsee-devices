@@ -78,11 +78,12 @@ export function LivePlayer({ camera }: { camera: Camera }) {
     const timeout = setTimeout(() => {
       const hasFrame = !!video && video.readyState >= 2
       if (!hasFrame && (tuya || pc.connectionState !== 'connected')) {
+        // Sin conexión con go2rtc el problema es de red (HOST_IP), no del dispositivo.
         report(
           'error',
-          tuya
-            ? 'La cámara Tuya no entregó video. Puede estar sin conexión o con poca batería.'
-            : 'No llegó video de la cámara. Si pasa siempre, revisa HOST_IP en .env (la IP de este equipo en la red).',
+          pc.connectionState !== 'connected'
+            ? 'No se pudo conectar con el video. Si pasa siempre, revisa HOST_IP en .env (la IP de este equipo en la red) o ejecuta scripts/up.ps1.'
+            : 'La cámara Tuya no entregó video. Puede estar sin conexión o con poca batería.',
         )
       }
     }, firstFrameTimeout)
