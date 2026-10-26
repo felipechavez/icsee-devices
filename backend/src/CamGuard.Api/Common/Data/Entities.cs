@@ -43,6 +43,12 @@ public class Camera
 
     public MotionSensitivity MotionSensitivity { get; set; } = MotionSensitivity.Medium;
 
+    /// <summary>Qué hace la IA con los clips de esta cámara (ver Features/Detection).</summary>
+    public DetectionMode DetectionMode { get; set; } = DetectionMode.Tag;
+
+    public bool DetectPeople { get; set; } = true;
+    public bool DetectAnimals { get; set; } = true;
+
     /// <summary>La sensibilidad cambió y falta escribirla en la cámara (solo se puede con la cámara despierta).</summary>
     public bool SensitivityPending { get; set; }
 
@@ -66,12 +72,30 @@ public enum MotionSensitivity
     High
 }
 
+public enum DetectionMode
+{
+    /// <summary>Sin análisis: se sube todo.</summary>
+    Off,
+
+    /// <summary>Analiza y etiqueta, pero sube todo (para calibrar).</summary>
+    Tag,
+
+    /// <summary>Descarta los clips sin personas ni animales.</summary>
+    Filter
+}
+
 public enum RecordingStatus
 {
     Recording,
+
+    /// <summary>Grabado; esperando a la IA (Features/Detection) antes de subirse.</summary>
+    Analyzing,
     Uploading,
     Uploaded,
-    Failed
+    Failed,
+
+    /// <summary>La IA no encontró personas ni animales (modo Filter): no se sube y los archivos se borran.</summary>
+    Discarded
 }
 
 public class Recording
@@ -86,6 +110,12 @@ public class Recording
     public string? StorageKey { get; set; }
     public string? ThumbnailKey { get; set; }
     public RecordingStatus Status { get; set; }
+
+    /// <summary>Lo que vio la IA: "persona", "perro"… o "nada". Null = sin analizar (modo Off o el análisis falló).</summary>
+    public string? Detection { get; set; }
+
+    /// <summary>Confianza de <see cref="Detection"/> (0–1); con "nada", la mayor por debajo del umbral.</summary>
+    public double? DetectionScore { get; set; }
 }
 
 public enum CameraEventType
@@ -123,4 +153,7 @@ public class AppSettings
     public int MaxClipSeconds { get; set; } = 60;
     public int CooldownSeconds { get; set; } = 10;
     public int RetentionDays { get; set; } = 30;
+
+    /// <summary>Confianza mínima (0–1) para dar por vista una persona o un animal.</summary>
+    public double DetectionMinConfidence { get; set; } = 0.5;
 }

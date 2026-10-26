@@ -117,6 +117,45 @@ public class CameraInputTests
         await Assert.That(errors.Keys).Contains(nameof(CameraInput.MotionSensitivity));
     }
 
+    [Test]
+    public async Task Validate_FilterWithoutClasses_Rejected()
+    {
+        var errors = CameraInput.Validate(Valid() with { DetectionMode = DetectionMode.Filter, DetectPeople = false, DetectAnimals = false },
+            isNew: false);
+
+        await Assert.That(errors.Keys).Contains(nameof(CameraInput.DetectionMode));
+    }
+
+    [Test]
+    [Arguments(DetectionMode.Off)]
+    [Arguments(DetectionMode.Tag)]
+    public async Task Validate_NoClassesOutsideFilter_Accepted(DetectionMode mode)
+    {
+        var input = Valid() with { DetectionMode = mode, DetectPeople = false, DetectAnimals = false };
+
+        await Assert.That(CameraInput.Validate(input, isNew: false)).IsEmpty();
+    }
+
+    [Test]
+    public async Task Validate_UnknownDetectionMode_Rejected()
+    {
+        var errors = CameraInput.Validate(Valid() with { DetectionMode = (DetectionMode)9 }, isNew: false);
+
+        await Assert.That(errors.Keys).Contains(nameof(CameraInput.DetectionMode));
+    }
+
+    [Test]
+    public async Task ApplyTo_DetectionSettings_Copied()
+    {
+        var camera = new Camera { Name = "", Ip = "", Go2rtcStream = "" };
+
+        (ValidTuya() with { DetectionMode = DetectionMode.Filter, DetectAnimals = false }).ApplyTo(camera, null!);
+
+        await Assert.That(camera.DetectionMode).IsEqualTo(DetectionMode.Filter);
+        await Assert.That(camera.DetectPeople).IsTrue();
+        await Assert.That(camera.DetectAnimals).IsFalse();
+    }
+
     private static CameraInput ValidTuya() =>
         new("Chapa de casa", "", 0, "chapa", true, "", Kind: CameraKind.Tuya, TuyaDeviceId: "eb8d8e837c0a688a86f1kb", Rotation: 90);
 

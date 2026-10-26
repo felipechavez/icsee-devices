@@ -21,7 +21,10 @@ public record CameraInput(
     CameraKind Kind = CameraKind.Icsee,
     string? TuyaDeviceId = null,
     int Rotation = 0,
-    string? TuyaTriggerDeviceIds = null)
+    string? TuyaTriggerDeviceIds = null,
+    DetectionMode DetectionMode = DetectionMode.Tag,
+    bool DetectPeople = true,
+    bool DetectAnimals = true)
 {
     public const int MaxPasswordLength = 128;
     public const int MaxTriggerDevices = 10;
@@ -40,6 +43,10 @@ public record CameraInput(
             errors[nameof(r.Model)] = ["El modelo admite máx. 100 caracteres."];
         if (!Rotations.Contains(r.Rotation))
             errors[nameof(r.Rotation)] = ["La rotación debe ser 0, 90, 180 o 270."];
+        if (!Enum.IsDefined(r.DetectionMode))
+            errors[nameof(r.DetectionMode)] = ["Modo de detección inválido."];
+        else if (r.DetectionMode == DetectionMode.Filter && !r.DetectPeople && !r.DetectAnimals)
+            errors[nameof(r.DetectionMode)] = ["Para filtrar, activa personas, animales o ambos."];
 
         switch (r.Kind)
         {
@@ -122,6 +129,9 @@ public record CameraInput(
         camera.Enabled = Enabled;
         camera.Model = string.IsNullOrWhiteSpace(Model) ? null : Model.Trim();
         camera.Rotation = Rotation;
+        camera.DetectionMode = DetectionMode;
+        camera.DetectPeople = DetectPeople;
+        camera.DetectAnimals = DetectAnimals;
 
         if (Kind == CameraKind.Tuya)
         {

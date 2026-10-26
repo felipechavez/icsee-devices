@@ -74,6 +74,8 @@ services:
       Tuya__MessageEndpoint: ${TUYA_MESSAGE_ENDPOINT:-wss://mqe.tuyaus.com:8285/}
       # Debug registra todos los mensajes de Tuya (también de dispositivos que no son cámaras)
       Logging__LogLevel__CamGuard.Api.Features.Tuya: ${TUYA_LOG_LEVEL:-Information}
+      # IA (personas y animales): el modelo viene en la imagen; otro (p. ej. yolox_tiny) va en /data
+      Detection__ModelPath: ${DETECTION_MODEL_PATH:-/app/models/yolox_nano.onnx}
 
     volumes:
       - apidata:/data

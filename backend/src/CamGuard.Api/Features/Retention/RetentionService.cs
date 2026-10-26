@@ -10,9 +10,13 @@ public static class RetentionPolicy
     public static DateTimeOffset Cutoff(DateTimeOffset now, int retentionDays) =>
         now.AddDays(-Math.Max(1, retentionDays));
 
-    /// <summary>Solo se borran clips terminados; los que están grabando o subiendo se respetan.</summary>
+    /// <summary>
+    /// Solo se borran clips terminados (los descartados por la IA no tienen archivo remoto); los que están
+    /// grabando, analizándose o subiendo se respetan.
+    /// </summary>
     public static Expression<Func<Recording, bool>> ExpiredBefore(DateTimeOffset cutoff) =>
-        r => r.StartedAt < cutoff && (r.Status == RecordingStatus.Uploaded || r.Status == RecordingStatus.Failed);
+        r => r.StartedAt < cutoff
+            && (r.Status == RecordingStatus.Uploaded || r.Status == RecordingStatus.Failed || r.Status == RecordingStatus.Discarded);
 }
 
 /// <summary>Una vez al día borra de R2 y de la base los clips más antiguos que la retención.</summary>

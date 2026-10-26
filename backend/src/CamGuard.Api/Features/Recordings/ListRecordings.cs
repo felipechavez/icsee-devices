@@ -20,12 +20,20 @@ public static class ListRecordings
         double? DurationSec,
         long? SizeBytes,
         RecordingStatus Status,
-        string? ThumbnailUrl);
+        string? ThumbnailUrl,
+        string? Detection = null,
+        double? DetectionScore = null);
 
     public record Response(IReadOnlyList<RecordingResponse> Items, int Page, int PageSize, int TotalCount, bool HasMore);
 
     public static (int Page, int PageSize) NormalizePaging(int? page, int? pageSize) =>
         (Math.Max(1, page ?? 1), Math.Clamp(pageSize ?? DefaultPageSize, 1, MaxPageSize));
+
+    /// <summary>Sin filtro se ocultan los descartados por la IA; se ven solo pidiendo status=Discarded.</summary>
+    public static IQueryable<Recording> FilterStatus(IQueryable<Recording> query, RecordingStatus? status) =>
+        status is null
+            ? query.Where(r => r.Status != RecordingStatus.Discarded)
+            : query.Where(r => r.Status == status);
 
     public class Endpoint : IEndpoint
     {
@@ -52,7 +60,7 @@ public static class ListRecordings
                     if (fromUtc is not null) query = query.Where(r => r.StartedAt >= fromUtc);
                     if (toUtc is not null) query = query.Where(r => r.StartedAt < toUtc);
                     if (cameraId is not null) query = query.Where(r => r.CameraId == cameraId);
-                    if (status is not null) query = query.Where(r => r.Status == status);
+                    query = FilterStatus(query, status);
 
                     var total = await query.CountAsync(ct);
                     var rows = await query
@@ -70,7 +78,7 @@ public static class ListRecordings
                             ? storage.GetPresignedUrl(r.ThumbnailKey, ttl)
                             : null;
                         return new RecordingResponse(r.Id, r.CameraId, x.CameraName, r.StartedAt, r.EndedAt,
-                            r.DurationSec, r.SizeBytes, r.Status, thumb);
+                            r.DurationSec, r.SizeBytes, r.Status, thumb, r.Detection, r.DetectionScore);
                     }).ToList();
 
                     return new Response(items, p, size, total, p * size < total);

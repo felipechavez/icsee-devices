@@ -40,6 +40,7 @@ public static class RecordingTimeline
 
                     // Postgres (timestamptz) solo acepta DateTimeOffset en UTC; el cliente puede mandar su zona.
                     var (fromUtc, toUtc) = (from.ToUniversalTime(), to.ToUniversalTime());
+                    // Incluye los descartados por la IA: la web los cuenta en su filtro, pero no los dibuja.
                     var query = db.Recordings.AsNoTracking().Where(r => r.StartedAt >= fromUtc && r.StartedAt < toUtc);
                     if (cameraId is not null) query = query.Where(r => r.CameraId == cameraId);
 

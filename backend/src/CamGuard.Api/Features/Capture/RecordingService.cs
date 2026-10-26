@@ -4,8 +4,8 @@ using CamGuard.Api.Common.Data;
 using CamGuard.Api.Common.Events;
 using CamGuard.Api.Common.Realtime;
 using CamGuard.Api.Common.Storage;
+using CamGuard.Api.Features.Detection;
 using CamGuard.Api.Features.Tuya;
-using CamGuard.Api.Features.Upload;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -14,13 +14,13 @@ namespace CamGuard.Api.Features.Capture;
 
 /// <summary>
 /// Al despertar la cámara graba el stream RTSP de go2rtc con un tope de tiempo;
-/// al dormirse corta la grabación. El clip terminado pasa a la cola de subida.
+/// al dormirse corta la grabación. El clip terminado pasa a la IA (Detection), que decide si se sube.
 /// </summary>
 public class RecordingService(
     CameraEventChannel events,
     ActivationGate gate,
     IRecorder recorder,
-    UploadQueue uploads,
+    DetectionQueue detections,
     IServiceScopeFactory scopeFactory,
     IOptions<Go2rtcOptions> go2rtc,
     IOptions<AppOptions> appOptions,
@@ -136,12 +136,7 @@ public class RecordingService(
         }, CancellationToken.None);
     }
 
-    private (string Clip, string Thumbnail) LocalPaths(Guid recordingId)
-    {
-        var clipsDir = Path.Combine(appOptions.Value.DataDirectory, "clips");
-        Directory.CreateDirectory(clipsDir);
-        return (Path.Combine(clipsDir, $"{recordingId:N}.mp4"), Path.Combine(clipsDir, $"{recordingId:N}.jpg"));
-    }
+    private (string Clip, string Thumbnail) LocalPaths(Guid recordingId) => ClipPaths.For(appOptions.Value.DataDirectory, recordingId);
 
     private async Task RecordAsync(Guid recordingId, int cameraId, string rtspUrl, TimeSpan maxDuration, int rotation, TimeSpan startupGrace,
         TimeSpan readTimeout,
@@ -183,10 +178,11 @@ public class RecordingService(
         recording.SizeBytes = file.Length;
         recording.StorageKey = StorageKeys.Clip(cameraId, recordingId, recording.StartedAt);
         recording.ThumbnailKey = hasThumb ? StorageKeys.Thumbnail(cameraId, recordingId, recording.StartedAt) : null;
-        recording.Status = RecordingStatus.Uploading;
+        // La IA decide si se sube (Features/Detection); el estado en BD hace de cola persistente.
+        recording.Status = RecordingStatus.Analyzing;
         await db.SaveChangesAsync(CancellationToken.None);
 
-        await uploads.EnqueueAsync(new UploadJob(recordingId, clipPath, hasThumb ? thumbPath : null), CancellationToken.None);
+        detections.Enqueue(recordingId);
     }
 
     private async Task MarkFailedAsync(Guid recordingId, string clipPath, CancellationToken ct)

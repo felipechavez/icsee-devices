@@ -29,6 +29,9 @@ public class RetentionPolicyTests
     [Arguments(RecordingStatus.Uploaded, -29, false)]
     [Arguments(RecordingStatus.Recording, -31, false)]
     [Arguments(RecordingStatus.Uploading, -31, false)]
+    [Arguments(RecordingStatus.Analyzing, -31, false)]
+    [Arguments(RecordingStatus.Discarded, -31, true)]
+    [Arguments(RecordingStatus.Discarded, -29, false)]
     public async Task ExpiredBefore_OnlyOldFinishedClips(RecordingStatus status, int daysAgo, bool expected)
     {
         var cutoff = RetentionPolicy.Cutoff(Now, 30);

@@ -30,6 +30,9 @@ namespace CamGuard.Api.Common.Data.Migrations
                     b.Property<int>("CooldownSeconds")
                         .HasColumnType("integer");
 
+                    b.Property<double>("DetectionMinConfidence")
+                        .HasColumnType("double precision");
+
                     b.Property<int>("MaxClipSeconds")
                         .HasColumnType("integer");
 
@@ -45,6 +48,7 @@ namespace CamGuard.Api.Common.Data.Migrations
                         {
                             Id = 1,
                             CooldownSeconds = 10,
+                            DetectionMinConfidence = 0.5,
                             MaxClipSeconds = 60,
                             RetentionDays = 30
                         });
@@ -60,6 +64,17 @@ namespace CamGuard.Api.Common.Data.Migrations
 
                     b.Property<int?>("BatteryPercent")
                         .HasColumnType("integer");
+
+                    b.Property<bool>("DetectAnimals")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("DetectPeople")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("DetectionMode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.Property<DateTimeOffset?>("DeviceInfoAt")
                         .HasColumnType("timestamp with time zone");
@@ -181,6 +196,13 @@ namespace CamGuard.Api.Common.Data.Migrations
 
                     b.Property<int>("CameraId")
                         .HasColumnType("integer");
+
+                    b.Property<string>("Detection")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<double?>("DetectionScore")
+                        .HasColumnType("double precision");
 
                     b.Property<double?>("DurationSec")
                         .HasColumnType("double precision");

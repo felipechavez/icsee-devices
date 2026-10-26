@@ -36,7 +36,10 @@ public static class ListCameras
         CameraKind Kind = CameraKind.Icsee,
         string? TuyaDeviceId = null,
         int Rotation = 0,
-        string? TuyaTriggerDeviceIds = null);
+        string? TuyaTriggerDeviceIds = null,
+        DetectionMode DetectionMode = DetectionMode.Tag,
+        bool DetectPeople = true,
+        bool DetectAnimals = true);
 
     /// <summary>Último clip y miniatura de cada cámara, más los clips del día pedido.</summary>
     public record RecordingStats(DateTimeOffset? LastRecordingAt, string? LastThumbnailUrl, int? ClipsToday)
@@ -51,7 +54,7 @@ public static class ListCameras
             !string.IsNullOrEmpty(c.PasswordProtected), state.IsAwake, state.LastChangedAt,
             c.Model, c.MotionSensitivity, c.SensitivityPending, c.BatteryPercent, c.StorageUsedBytes, c.StorageTotalBytes,
             c.DeviceInfoAt, isRecording, stats.LastRecordingAt, stats.LastThumbnailUrl, stats.ClipsToday,
-            c.Kind, c.TuyaDeviceId, c.Rotation, c.TuyaTriggerDeviceIds);
+            c.Kind, c.TuyaDeviceId, c.Rotation, c.TuyaTriggerDeviceIds, c.DetectionMode, c.DetectPeople, c.DetectAnimals);
     }
 
     public class Endpoint : IEndpoint
@@ -71,7 +74,9 @@ public static class ListCameras
                 {
                     var cameras = await db.Cameras.AsNoTracking().OrderBy(c => c.Id).ToListAsync(ct);
 
-                    var last = await db.Recordings.AsNoTracking()
+                    // Los descartados por la IA no cuentan: no hay clip que ver.
+                    var recordings = db.Recordings.AsNoTracking().Where(r => r.Status != RecordingStatus.Discarded);
+                    var last = await recordings
                         .GroupBy(r => r.CameraId)
                         .Select(g => new
                         {
@@ -89,7 +94,7 @@ public static class ListCameras
                     {
                         // Postgres (timestamptz) solo acepta DateTimeOffset en UTC.
                         var (fromUtc, toUtc) = (todayFrom.Value.ToUniversalTime(), todayTo.Value.ToUniversalTime());
-                        today = await db.Recordings.AsNoTracking()
+                        today = await recordings
                             .Where(r => r.StartedAt >= fromUtc && r.StartedAt < toUtc)
                             .GroupBy(r => r.CameraId)
                             .Select(g => new { CameraId = g.Key, Count = g.Count() })

@@ -233,11 +233,18 @@ public class TuyaEventService(
 
         logger.LogInformation("Tuya {Name}: {Text}", camera.Name, signal.Text);
         await SaveEventAsync(camera.Id, signal, at ?? now, ct);
-        if (notify) _ = NotifyAsync(camera, signal, at ?? now);
+        if (notify && ShouldNotifyImmediately(camera, signal)) _ = NotifyAsync(camera, signal, at ?? now);
 
         if (signal.TriggersRecording && _window.Trigger(camera.Id, now))
             await publisher.PublishAsync(camera, CameraEventType.Awake, ct);
     }
+
+    /// <summary>
+    /// Con la IA en Filter, el movimiento no se avisa al instante: queda solo el aviso del clip, si la IA lo
+    /// confirma. Timbre, alarmas y aperturas siempre se avisan al instante.
+    /// </summary>
+    public static bool ShouldNotifyImmediately(Camera camera, TuyaSignal signal) =>
+        !(signal.Kind == TuyaSignalKind.Motion && camera.DetectionMode == DetectionMode.Filter);
 
     /// <summary>Sensor → cámaras que despierta. Un mismo sensor puede despertar varias cámaras.</summary>
     public static Dictionary<string, List<Camera>> BuildTriggerMap(IEnumerable<Camera> cameras)

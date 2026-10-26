@@ -25,6 +25,21 @@ public class TuyaEventServiceTests
         await Assert.That(TuyaEventService.IsStale(null, Now)).IsFalse();
     }
 
+    [Test]
+    [Arguments(DetectionMode.Filter, TuyaSignalKind.Motion, false)]
+    [Arguments(DetectionMode.Tag, TuyaSignalKind.Motion, true)]
+    [Arguments(DetectionMode.Off, TuyaSignalKind.Motion, true)]
+    [Arguments(DetectionMode.Filter, TuyaSignalKind.Doorbell, true)]
+    [Arguments(DetectionMode.Filter, TuyaSignalKind.Alarm, true)]
+    [Arguments(DetectionMode.Filter, TuyaSignalKind.Unlock, true)]
+    public async Task ShouldNotifyImmediately_FilterOnlyMutesMotion(DetectionMode mode, TuyaSignalKind kind, bool expected)
+    {
+        var camera = Tuya(1, "lock0000001", null);
+        camera.DetectionMode = mode;
+
+        await Assert.That(TuyaEventService.ShouldNotifyImmediately(camera, new TuyaSignal(kind))).IsEqualTo(expected);
+    }
+
     private static Camera Tuya(int id, string device, string? triggers) =>
         new() { Id = id, Name = $"cam{id}", Ip = "", Go2rtcStream = $"cam{id}", Kind = CameraKind.Tuya, TuyaDeviceId = device, TuyaTriggerDeviceIds = triggers };
 

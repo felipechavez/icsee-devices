@@ -17,6 +17,29 @@ public class ListRecordingsTests
         await Assert.That(p).IsEqualTo(expectedPage);
         await Assert.That(size).IsEqualTo(expectedSize);
     }
+
+    private static readonly Recording[] Mixed =
+    [
+        new() { Status = RecordingStatus.Uploaded },
+        new() { Status = RecordingStatus.Analyzing },
+        new() { Status = RecordingStatus.Discarded }
+    ];
+
+    [Test]
+    public async Task FilterStatus_NoFilter_HidesDiscarded()
+    {
+        var statuses = ListRecordings.FilterStatus(Mixed.AsQueryable(), null).Select(r => r.Status);
+
+        await Assert.That(statuses).IsEquivalentTo([RecordingStatus.Uploaded, RecordingStatus.Analyzing]);
+    }
+
+    [Test]
+    public async Task FilterStatus_Discarded_OnlyDiscarded()
+    {
+        var statuses = ListRecordings.FilterStatus(Mixed.AsQueryable(), RecordingStatus.Discarded).Select(r => r.Status);
+
+        await Assert.That(statuses).IsEquivalentTo([RecordingStatus.Discarded]);
+    }
 }
 
 public class GetPlaybackUrlTests

@@ -3,6 +3,7 @@ using CamGuard.Api.Common.Data;
 using CamGuard.Api.Common.Notifications;
 using CamGuard.Api.Common.Realtime;
 using CamGuard.Api.Common.Storage;
+using CamGuard.Api.Features.Detection;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -99,7 +100,7 @@ public class UploadService(
             var duration = recording.DurationSec is { } d ? $" ({Math.Round(d)} s)" : "";
 
             await notifier.NotifyAsync(new Notification(
-                Title: $"Movimiento: {recording.Camera?.Name}",
+                Title: NotificationTitle(recording.Detection, recording.Camera?.Name),
                 Message: $"Nuevo clip a las {recording.StartedAt.ToLocalTime():HH:mm:ss}{duration}",
                 ClickUrl: link,
                 ImageUrl: image,
@@ -111,6 +112,14 @@ public class UploadService(
             logger.LogWarning(ex, "No se pudo enviar la notificación de {Id}", recording.Id);
         }
     }
+
+    /// <summary>"Persona: Entrada", "Animal (perro): Patio"; sin detección (o "nada"), "Movimiento: …".</summary>
+    public static string NotificationTitle(string? detection, string? cameraName) => detection switch
+    {
+        CocoClasses.PersonLabel => $"Persona: {cameraName}",
+        _ when CocoClasses.IsAnimalLabel(detection) => $"Animal ({detection}): {cameraName}",
+        _ => $"Movimiento: {cameraName}"
+    };
 
     private void Cleanup(UploadJob job)
     {

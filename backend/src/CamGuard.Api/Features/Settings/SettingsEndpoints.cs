@@ -3,7 +3,7 @@ using CamGuard.Api.Common.Endpoints;
 
 namespace CamGuard.Api.Features.Settings;
 
-public record SettingsDto(int MaxClipSeconds, int CooldownSeconds, int RetentionDays);
+public record SettingsDto(int MaxClipSeconds, int CooldownSeconds, int RetentionDays, double DetectionMinConfidence = 0.5);
 
 public static class GetSettings
 {
@@ -14,7 +14,7 @@ public static class GetSettings
             app.MapGet("/settings", async (AppDbContext db, CancellationToken ct) =>
                 {
                     var s = await db.GetSettingsAsync(ct);
-                    return new SettingsDto(s.MaxClipSeconds, s.CooldownSeconds, s.RetentionDays);
+                    return new SettingsDto(s.MaxClipSeconds, s.CooldownSeconds, s.RetentionDays, s.DetectionMinConfidence);
                 })
                 .WithTags("Settings");
         }
@@ -27,6 +27,8 @@ public static class UpdateSettings
     public const int MaxClipSeconds = 600;
     public const int MaxCooldownSeconds = 600;
     public const int MaxRetentionDays = 365;
+    public const double MinDetectionConfidence = 0.2;
+    public const double MaxDetectionConfidence = 0.95;
 
     public static Dictionary<string, string[]> Validate(SettingsDto r)
     {
@@ -37,6 +39,8 @@ public static class UpdateSettings
             errors[nameof(r.CooldownSeconds)] = [$"Debe estar entre 0 y {MaxCooldownSeconds} segundos."];
         if (r.RetentionDays is < 1 or > MaxRetentionDays)
             errors[nameof(r.RetentionDays)] = [$"Debe estar entre 1 y {MaxRetentionDays} días."];
+        if (r.DetectionMinConfidence is < MinDetectionConfidence or > MaxDetectionConfidence || double.IsNaN(r.DetectionMinConfidence))
+            errors[nameof(r.DetectionMinConfidence)] = ["La confianza mínima debe estar entre 20 % y 95 %."];
         return errors;
     }
 
@@ -54,6 +58,7 @@ public static class UpdateSettings
                     s.MaxClipSeconds = request.MaxClipSeconds;
                     s.CooldownSeconds = request.CooldownSeconds;
                     s.RetentionDays = request.RetentionDays;
+                    s.DetectionMinConfidence = request.DetectionMinConfidence;
                     await db.SaveChangesAsync(ct);
                     return Results.Ok(request);
                 })
