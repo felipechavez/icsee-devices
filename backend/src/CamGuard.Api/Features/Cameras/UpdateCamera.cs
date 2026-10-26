@@ -27,6 +27,10 @@ public static class UpdateCamera
                     if (camera is null)
                         return Results.NotFound();
 
+                    errors = CameraInput.ValidateKindUnchanged(request, camera);
+                    if (errors.Count > 0)
+                        return Results.ValidationProblem(errors);
+
                     errors = await request.ValidateUniqueAsync(db, id, ct);
                     if (errors.Count > 0)
                         return Results.ValidationProblem(errors, statusCode: StatusCodes.Status409Conflict);

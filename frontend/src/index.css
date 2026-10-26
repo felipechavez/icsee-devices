@@ -579,6 +579,44 @@ input[type='number'] {
   display: block;
 }
 
+/* Cámara montada de lado (Camera.rotation): el video entero se gira dentro del cuadro. */
+.frame[data-rotation] {
+  container-type: size;
+}
+
+/* En pantalla completa se amplía el cuadro entero (video y botones). */
+.frame:fullscreen {
+  aspect-ratio: auto;
+  border: 0;
+  border-radius: 0;
+}
+
+.frame:fullscreen > video {
+  object-fit: contain;
+}
+
+.frame[data-rotation] > video {
+  object-fit: contain;
+}
+
+.frame[data-rotation='180'] > video {
+  transform: rotate(180deg);
+}
+
+.frame[data-rotation='90'] > video,
+.frame[data-rotation='270'] > video {
+  inset: auto;
+  top: 50%;
+  left: 50%;
+  width: 100cqh;
+  height: 100cqw;
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
+.frame[data-rotation='270'] > video {
+  transform: translate(-50%, -50%) rotate(-90deg);
+}
+
 .frame-empty {
   position: absolute;
   inset: 0;

@@ -74,4 +74,16 @@ public class StreamSyncPlanTests
 
         await Assert.That(plan.ToDelete).IsEquivalentTo(["vieja"]);
     }
+
+    [Test]
+    public async Task Compute_StreamManagedElsewhere_IsKeptAndNotPatched()
+    {
+        var desired = new Dictionary<string, string> { ["patio"] = "dvrip://a" };
+        var current = new Dictionary<string, string?> { ["patio"] = "dvrip://a", ["chapa"] = "rtsps://tuya/x" };
+
+        var plan = StreamSyncPlan.Compute(desired, current, NoneApplied, new HashSet<string> { "chapa" });
+
+        await Assert.That(plan.ToDelete).IsEmpty();
+        await Assert.That(plan.ToPatch).IsEmpty();
+    }
 }

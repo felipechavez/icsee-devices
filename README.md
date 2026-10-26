@@ -16,9 +16,9 @@ cámara ──DVRIP:34567──► go2rtc ──RTSP──► API (.NET 10 + FFm
 
 ## Requisitos
 
-- Un equipo x86 siempre encendido con Docker (SQL Server no corre en ARM).
+- Un equipo siempre encendido con Docker: x86-64 o ARM64 (Raspberry Pi 4/5).
 - Cada cámara con IP fija (reserva DHCP en el router).
-- Un bucket en R2 (o B2, MinIO…) y, si quieres notificaciones, un tópico de ntfy.
+- Un bucket en R2 (o B2, MinIO…) y, si quieres notificaciones, un tópico de ntfy (ver [docs/ntfy.md](docs/ntfy.md)).
 
 ## Puesta en marcha
 
@@ -68,14 +68,37 @@ deshabilítala para dejar de monitorearla y conservar el historial.
 
 ### Respaldo de la base
 
-`scripts/backup-db.sh` crea un `.bak` comprimido de SQL Server y un volcado de Keycloak
+`scripts/backup-db.sh` crea volcados comprimidos de la base de CamGuard (`camguard-*.sql.gz`, Postgres) y de Keycloak
 (`keycloak-*.sql.gz`, usuarios incluidos) en `./backups`, y borra los de más de 14 días. Prográmalo con cron (ver el encabezado del script).
+Las llaves que cifran las contraseñas de las cámaras viven en el volumen `apidata` (`/data/keys`): respáldalo también.
+
+### Migrar desde SQL Server (instalaciones hasta el Sprint 5)
+
+CamGuard usaba SQL Server, que no corre en ARM. Para pasar los datos a Postgres una sola vez, en el equipo
+que tiene la base anterior (necesita el SDK de .NET):
+
+```sh
+# .env: agrega DB_PASSWORD y conserva SQL_PASSWORD (la de antes)
+docker compose stop api
+docker compose --profile legacy-sqlserver up -d sqlserver db
+cd backend && dotnet run --project tools/CamGuard.DbMigrator -- \
+  --from "Server=127.0.0.1,14330;Database=CamGuard;User Id=sa;Password=<SQL_PASSWORD>;TrustServerCertificate=True" \
+  --to   "Host=localhost;Port=5433;Database=camguard;Username=camguard;Password=<DB_PASSWORD>"
+cd .. && docker compose stop sqlserver && docker compose up -d --build
+```
+
+La herramienta copia cámaras, grabaciones, eventos y ajustes conservando los Ids, y compara los conteos al
+final. Si Postgres ya tiene datos se detiene (`--force` lo vacía y copia de nuevo). El volumen `sqldata` queda
+intacto hasta que lo borres.
+
+Para mudarte a otro equipo (p. ej. una Raspberry Pi): corre `scripts/backup-db.sh` en el actual, restaura
+`camguard-*.sql.gz` en el nuevo (ver el encabezado del script) y copia el volumen `apidata`.
 
 ## Desarrollo
 
 ```sh
-# SQL Server local
-docker run -d --name camguard-sql -e ACCEPT_EULA=Y -e MSSQL_SA_PASSWORD='CamGuard_Dev_123!' -p 1433:1433 mcr.microsoft.com/mssql/server:2022-latest
+# Postgres local (127.0.0.1:5433, la de appsettings.Development.json)
+docker run -d --name camguard-pg -e POSTGRES_DB=camguard -e POSTGRES_USER=camguard -e POSTGRES_PASSWORD=CamGuard_Dev_123 -p 127.0.0.1:5433:5432 postgres:17-alpine
 
 # Keycloak (http://localhost:8180, publicado solo en 127.0.0.1); PUBLIC_URL apunta a Vite
 PUBLIC_URL=http://localhost:5173 docker compose up -d --build keycloak

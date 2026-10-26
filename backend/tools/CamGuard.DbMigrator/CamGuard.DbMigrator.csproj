@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Herramienta de una sola vez: copia la base de SQL Server (hasta el Sprint 5) a Postgres. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <!-- Mismo modelo y migraciones que la API, sin referenciar el proyecto web. -->
+  <ItemGroup>
+    <Compile Include="..\..\src\CamGuard.Api\Common\Data\AppDbContext.cs" Link="Data\AppDbContext.cs" />
+    <Compile Include="..\..\src\CamGuard.Api\Common\Data\Entities.cs" Link="Data\Entities.cs" />
+    <Compile Include="..\..\src\CamGuard.Api\Common\Data\Migrations\*.cs" Link="Data\Migrations\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.12" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.12" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+    <!-- SqlClient trae la 9.0.11, con vulnerabilidades conocidas. -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
+  </ItemGroup>
+
+</Project>

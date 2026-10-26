@@ -14,6 +14,7 @@ using CamGuard.Api.Features.Live;
 using CamGuard.Api.Features.Monitoring;
 using CamGuard.Api.Features.Retention;
 using CamGuard.Api.Features.Streams;
+using CamGuard.Api.Features.Tuya;
 using CamGuard.Api.Features.Upload;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
@@ -27,7 +28,7 @@ builder.Services.Configure<Go2rtcOptions>(config.GetSection(Go2rtcOptions.Sectio
 builder.Services.Configure<StorageOptions>(config.GetSection(StorageOptions.Section));
 builder.Services.Configure<NtfyOptions>(config.GetSection(NtfyOptions.Section));
 builder.Services.AddSingleton(TimeProvider.System);
-builder.Services.AddDbContext<AppDbContext>(o => o.UseSqlServer(config.GetConnectionString("Default")));
+builder.Services.AddDbContext<AppDbContext>(o => o.UseNpgsql(config.GetConnectionString("Default")));
 builder.Services.AddSingleton<CameraEventChannel>();
 builder.Services.AddSingleton<CameraAwakeChannel>();
 builder.Services.AddDataProtection()
@@ -51,6 +52,7 @@ builder.Services.AddUploadFeature();
 builder.Services.AddLiveFeature(config);
 builder.Services.AddStreamsFeature(config);
 builder.Services.AddDevicesFeature(config);
+builder.Services.AddTuyaFeature(config);
 builder.Services.AddHostedService<RetentionService>();
 
 var app = builder.Build();

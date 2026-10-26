@@ -411,4 +411,6 @@ backups/
 backend/src/CamGuard.Api/data/
 poc/clips/
 poc/go2rtc.poc.yaml
+poc/tuya/tuya.poc.json
+poc/tuya/out/
 frontend/dist/

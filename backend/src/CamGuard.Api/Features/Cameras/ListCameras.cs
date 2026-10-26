@@ -32,7 +32,11 @@ public static class ListCameras
         bool IsRecording = false,
         DateTimeOffset? LastRecordingAt = null,
         string? LastThumbnailUrl = null,
-        int? ClipsToday = null);
+        int? ClipsToday = null,
+        CameraKind Kind = CameraKind.Icsee,
+        string? TuyaDeviceId = null,
+        int Rotation = 0,
+        string? TuyaTriggerDeviceIds = null);
 
     /// <summary>Último clip y miniatura de cada cámara, más los clips del día pedido.</summary>
     public record RecordingStats(DateTimeOffset? LastRecordingAt, string? LastThumbnailUrl, int? ClipsToday)
@@ -46,7 +50,8 @@ public static class ListCameras
         return new(c.Id, c.Name, c.Ip, c.DvripPort, c.Go2rtcStream, c.Enabled, c.Username,
             !string.IsNullOrEmpty(c.PasswordProtected), state.IsAwake, state.LastChangedAt,
             c.Model, c.MotionSensitivity, c.SensitivityPending, c.BatteryPercent, c.StorageUsedBytes, c.StorageTotalBytes,
-            c.DeviceInfoAt, isRecording, stats.LastRecordingAt, stats.LastThumbnailUrl, stats.ClipsToday);
+            c.DeviceInfoAt, isRecording, stats.LastRecordingAt, stats.LastThumbnailUrl, stats.ClipsToday,
+            c.Kind, c.TuyaDeviceId, c.Rotation, c.TuyaTriggerDeviceIds);
     }
 
     public class Endpoint : IEndpoint
@@ -82,8 +87,10 @@ public static class ListCameras
                     Dictionary<int, int>? today = null;
                     if (todayFrom is not null && todayTo is not null)
                     {
+                        // Postgres (timestamptz) solo acepta DateTimeOffset en UTC.
+                        var (fromUtc, toUtc) = (todayFrom.Value.ToUniversalTime(), todayTo.Value.ToUniversalTime());
                         today = await db.Recordings.AsNoTracking()
-                            .Where(r => r.StartedAt >= todayFrom && r.StartedAt < todayTo)
+                            .Where(r => r.StartedAt >= fromUtc && r.StartedAt < toUtc)
                             .GroupBy(r => r.CameraId)
                             .Select(g => new { CameraId = g.Key, Count = g.Count() })
                             .ToDictionaryAsync(x => x.CameraId, x => x.Count, ct);

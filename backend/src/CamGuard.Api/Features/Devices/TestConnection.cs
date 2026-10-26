@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using CamGuard.Api.Common.Data;
 using CamGuard.Api.Common.Endpoints;
 using CamGuard.Api.Common.Security;
+using CamGuard.Api.Features.Tuya;
 
 namespace CamGuard.Api.Features.Devices;
 
@@ -11,13 +12,21 @@ namespace CamGuard.Api.Features.Devices;
 public static class TestConnection
 {
     /// <param name="CameraId">Si la contraseña viene vacía, se usa la guardada de esta cámara.</param>
-    public record Request(int? CameraId, string Ip, int DvripPort, string Username, string? Password);
+    /// <param name="TuyaDeviceId">Solo para <see cref="CameraKind.Tuya"/>: se consulta por la Tuya Cloud API.</param>
+    public record Request(int? CameraId, string Ip, int DvripPort, string Username, string? Password,
+        CameraKind Kind = CameraKind.Icsee, string? TuyaDeviceId = null);
 
     public record Response(bool Ok, string Message, string? Model);
 
     public static Dictionary<string, string[]> Validate(Request r)
     {
         var errors = new Dictionary<string, string[]>();
+        if (r.Kind == CameraKind.Tuya)
+        {
+            if (string.IsNullOrWhiteSpace(r.TuyaDeviceId))
+                errors[nameof(r.TuyaDeviceId)] = ["El Device ID de Tuya es obligatorio."];
+            return errors;
+        }
         if (!IPAddress.TryParse(r.Ip, out _))
             errors[nameof(r.Ip)] = ["IP inválida."];
         if (r.DvripPort is < 1 or > 65535)
@@ -36,11 +45,15 @@ public static class TestConnection
                     AppDbContext db,
                     CameraSecretProtector secrets,
                     DvripConnector connector,
+                    TuyaApiClient tuya,
                     CancellationToken ct) =>
                 {
                     var errors = Validate(request);
                     if (errors.Count > 0)
                         return Results.ValidationProblem(errors);
+
+                    if (request.Kind == CameraKind.Tuya)
+                        return Results.Ok(await TestTuyaAsync(tuya, request.TuyaDeviceId!.Trim(), ct));
 
                     var password = request.Password;
                     if (string.IsNullOrEmpty(password) && request.CameraId is { } id)
@@ -71,6 +84,25 @@ public static class TestConnection
                     }
                 })
                 .WithTags("Cameras");
+        }
+
+        private static async Task<Response> TestTuyaAsync(TuyaApiClient tuya, string deviceId, CancellationToken ct)
+        {
+            if (!tuya.IsConfigured)
+                return new Response(false, "Faltan las credenciales de Tuya (TUYA_ACCESS_ID y TUYA_ACCESS_SECRET en .env).", null);
+            try
+            {
+                var device = await tuya.GetDeviceAsync(deviceId, ct);
+                return new Response(true, $"Conexión OK · {(device.Online ? "en línea" : "fuera de línea")}", device.ProductName);
+            }
+            catch (TuyaApiException ex)
+            {
+                return new Response(false, ex.Message, null);
+            }
+            catch (HttpRequestException)
+            {
+                return new Response(false, "Sin respuesta de la Tuya Cloud API.", null);
+            }
         }
     }
 }

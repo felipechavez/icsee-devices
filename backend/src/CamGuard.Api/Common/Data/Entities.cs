@@ -4,6 +4,11 @@ public class Camera
 {
     public int Id { get; set; }
     public required string Name { get; set; }
+
+    /// <summary>iCSee (DVRIP en la LAN) o Tuya (cámara, timbre o cerradura; todo por la nube). No cambia después del alta.</summary>
+    public CameraKind Kind { get; set; } = CameraKind.Icsee;
+
+    /// <summary>IP de una iCSee; vacía en las Tuya.</summary>
     public required string Ip { get; set; }
     public int DvripPort { get; set; } = 34567;
     public required string Go2rtcStream { get; set; }
@@ -18,6 +23,24 @@ public class Camera
     /// <summary>Modelo editable; si está vacío se completa con el que informa la cámara.</summary>
     public string? Model { get; set; }
 
+    /// <summary>Device ID en la Tuya Cloud API; solo en las Tuya.</summary>
+    public string? TuyaDeviceId { get; set; }
+
+    /// <summary>
+    /// Device IDs de sensores Tuya (p. ej. PIR) separados por coma: su movimiento despierta y graba esta
+    /// cámara. Para cámaras sin detección propia, como una cerradura con video.
+    /// </summary>
+    public string? TuyaTriggerDeviceIds { get; set; }
+
+    /// <summary>Separa una lista de Device IDs escrita con comas, espacios o saltos de línea.</summary>
+    public static IReadOnlyList<string> SplitDeviceIds(string? ids) =>
+        string.IsNullOrWhiteSpace(ids)
+            ? []
+            : ids.Split([',', ';', ' ', '\n', '\r', '\t'], StringSplitOptions.RemoveEmptyEntries).Distinct(StringComparer.Ordinal).ToList();
+
+    /// <summary>Giro a la derecha en grados (0, 90, 180, 270) para cámaras montadas de lado.</summary>
+    public int Rotation { get; set; }
+
     public MotionSensitivity MotionSensitivity { get; set; } = MotionSensitivity.Medium;
 
     /// <summary>La sensibilidad cambió y falta escribirla en la cámara (solo se puede con la cámara despierta).</summary>
@@ -28,6 +51,12 @@ public class Camera
     public long? StorageUsedBytes { get; set; }
     public long? StorageTotalBytes { get; set; }
     public DateTimeOffset? DeviceInfoAt { get; set; }
+}
+
+public enum CameraKind
+{
+    Icsee,
+    Tuya
 }
 
 public enum MotionSensitivity
@@ -62,7 +91,16 @@ public class Recording
 public enum CameraEventType
 {
     Awake,
-    Asleep
+    Asleep,
+
+    // Dispositivos Tuya
+    Motion,
+    Doorbell,
+    Alarm,
+    Unlock,
+
+    /// <summary>Evento con foto de una cerradura aún sin tipo identificado.</summary>
+    LockEvent
 }
 
 public class CameraEvent
@@ -71,6 +109,9 @@ public class CameraEvent
     public int CameraId { get; set; }
     public CameraEventType Type { get; set; }
     public DateTimeOffset OccurredAt { get; set; }
+
+    /// <summary>Detalle del evento de un dispositivo Tuya, p. ej. "wrong_password" o "fingerprint #1".</summary>
+    public string? Detail { get; set; }
 }
 
 /// <summary>Fila única (Id = 1) con la configuración editable desde la web.</summary>

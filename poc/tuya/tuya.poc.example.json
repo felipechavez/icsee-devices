@@ -1,0 +1,6 @@
+{
+  "endpoint": "https://openapi.tuyaus.com",
+  "clientId": "ACCESS_ID_DEL_PROYECTO",
+  "clientSecret": "ACCESS_SECRET_DEL_PROYECTO",
+  "deviceId": "ID_DE_LA_CERRADURA"
+}

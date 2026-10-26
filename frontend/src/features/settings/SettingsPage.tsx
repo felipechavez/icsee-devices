@@ -142,6 +142,8 @@ export function SettingsPage() {
     try {
       const result = await api.testCamera({
         cameraId: key === NEW ? undefined : Number(key),
+        kind: d.kind,
+        tuyaDeviceId: d.kind === 'Tuya' ? d.tuyaDeviceId : undefined,
         ip: d.ip,
         dvripPort: d.dvripPort,
         username: d.username,
@@ -238,7 +240,8 @@ export function SettingsPage() {
           <div>
             <h2 className="section-title">Cámaras</h2>
             <p>
-              {list.length === 1 ? '1 cámara conectada' : `${list.length} cámaras conectadas`} por DVRIP en tu red local.
+              {list.length === 1 ? '1 cámara conectada' : `${list.length} cámaras conectadas`}: iCSee por DVRIP en tu red
+              local y dispositivos Tuya por la nube.
             </p>
           </div>
           <button className="btn btn-solid" style={{ padding: '9px 14px', borderRadius: 10 }} onClick={addCamera}>

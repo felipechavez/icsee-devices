@@ -9,6 +9,8 @@ type ConnectionStatus = 'connecting' | 'live' | 'error'
 const ICE_GATHER_TIMEOUT_MS = 2000
 /** Sin imagen pasado este tiempo se muestra el error con "Reintentar" en lugar de quedar colgado. */
 const FIRST_FRAME_TIMEOUT_MS = 20_000
+/** Tuya tarda bastante más: despierta el dispositivo y negocia el video por su nube. */
+const TUYA_FIRST_FRAME_TIMEOUT_MS = 90_000
 
 /** Espera a que termine la recolección de candidatos ICE (go2rtc no usa trickle). */
 function waitForIceGathering(pc: RTCPeerConnection) {
@@ -27,22 +29,31 @@ function waitForIceGathering(pc: RTCPeerConnection) {
 
 /**
  * Video en vivo por WebRTC. La oferta SDP pasa por la API (/api/live/{id}/webrtc)
- * y el video llega directo desde go2rtc. Se conecta solo cuando la cámara despierta.
+ * y el video llega directo desde go2rtc. Se conecta solo cuando la cámara despierta; una
+ * cámara Tuya también a demanda ("Ver en vivo" la despierta).
  */
 export function LivePlayer({ camera }: { camera: Camera }) {
+  const frameRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const [attempt, setAttempt] = useState(0)
+  const tuya = camera.kind === 'Tuya'
+  // Vivo a demanda de una cámara Tuya en reposo: go2rtc pide el video a Tuya y eso la despierta.
+  const [onDemand, setOnDemand] = useState(false)
   // "Detener" aplica solo a la activación actual: se identifica por la hora en que despertó.
   const [stoppedActivation, setStoppedActivation] = useState<string | null>(null)
   const activation = camera.lastChangedAt ?? ''
   const stopped = camera.isAwake && stoppedActivation === activation
 
+  const demanded = tuya && onDemand && camera.enabled
+
   // Cada intento de conexión tiene su clave; un resultado de un intento anterior se ignora.
-  const connectionKey = `${camera.id}|${activation}|${attempt}`
+  // A demanda no depende de la activación: si la cámara "despierta" mientras se mira, no se corta.
+  const connectionKey = demanded ? `${camera.id}|demand|${attempt}` : `${camera.id}|${activation}|${attempt}`
   const [result, setResult] = useState<{ key: string; status: ConnectionStatus; error?: string } | null>(null)
   const status: ConnectionStatus = result?.key === connectionKey ? result.status : 'connecting'
 
-  const shouldConnect = camera.isAwake && !stopped
+  const shouldConnect = demanded || (camera.isAwake && !stopped)
+  const firstFrameTimeout = tuya ? TUYA_FIRST_FRAME_TIMEOUT_MS : FIRST_FRAME_TIMEOUT_MS
 
   useEffect(() => {
     if (!shouldConnect) return
@@ -60,15 +71,23 @@ export function LivePlayer({ camera }: { camera: Camera }) {
       if (video && event.streams[0]) video.srcObject = event.streams[0]
     }
     // "En vivo" cuando llega el primer cuadro (o la conexión queda establecida, lo que ocurra antes).
+    // En Tuya la conexión con go2rtc se establece mucho antes de que el dispositivo despierte y mande
+    // imagen: ahí solo cuenta el primer cuadro.
     const onPlaying = () => report('live')
     video?.addEventListener('playing', onPlaying)
     const timeout = setTimeout(() => {
-      if (pc.connectionState !== 'connected' && !(video && video.readyState >= 2)) {
-        report('error', 'No llegó video de la cámara. Si pasa siempre, revisa HOST_IP en .env (la IP de este equipo en la red).')
+      const hasFrame = !!video && video.readyState >= 2
+      if (!hasFrame && (tuya || pc.connectionState !== 'connected')) {
+        report(
+          'error',
+          tuya
+            ? 'La cámara Tuya no entregó video. Puede estar sin conexión o con poca batería.'
+            : 'No llegó video de la cámara. Si pasa siempre, revisa HOST_IP en .env (la IP de este equipo en la red).',
+        )
       }
-    }, FIRST_FRAME_TIMEOUT_MS)
+    }, firstFrameTimeout)
     pc.onconnectionstatechange = () => {
-      if (pc.connectionState === 'connected') report('live')
+      if (pc.connectionState === 'connected' && !tuya) report('live')
       if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
         report('error', 'Se perdió la conexión con el video.')
       }
@@ -94,12 +113,27 @@ export function LivePlayer({ camera }: { camera: Camera }) {
       pc.close()
       if (video) video.srcObject = null
     }
-  }, [shouldConnect, connectionKey, camera.id])
+  }, [shouldConnect, connectionKey, camera.id, firstFrameTimeout])
 
   const live = shouldConnect && status === 'live'
 
+  const stop = () => {
+    setOnDemand(false)
+    if (camera.isAwake) setStoppedActivation(activation)
+  }
+
+  // Se amplía el cuadro y no el <video>: conserva el giro por CSS y los botones (para "Minimizar").
+  const [fullscreen, setFullscreen] = useState(false)
+  useEffect(() => {
+    const onChange = () => setFullscreen(document.fullscreenElement === frameRef.current)
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
+  const toggleFullscreen = () =>
+    void (fullscreen ? document.exitFullscreen() : frameRef.current?.requestFullscreen())
+
   return (
-    <div className="frame">
+    <div className="frame" ref={frameRef} data-rotation={camera.rotation || undefined}>
       {!live &&
         (camera.lastThumbnailUrl ? (
           <img className="live-still" src={camera.lastThumbnailUrl} alt="Último fotograma" />
@@ -115,10 +149,10 @@ export function LivePlayer({ camera }: { camera: Camera }) {
             EN VIVO · <LiveClock />
           </div>
           <div className="frame-br" style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-overlay" onClick={() => void videoRef.current?.requestFullscreen()}>
-              Pantalla completa
+            <button className="btn btn-overlay" onClick={toggleFullscreen}>
+              {fullscreen ? 'Minimizar' : 'Pantalla completa'}
             </button>
-            <button className="btn btn-overlay" onClick={() => setStoppedActivation(activation)}>
+            <button className="btn btn-overlay" onClick={stop}>
               Detener
             </button>
           </div>
@@ -128,6 +162,7 @@ export function LivePlayer({ camera }: { camera: Camera }) {
       {shouldConnect && status === 'connecting' && (
         <div className="live-idle">
           <span className="live-badge" data-state="connecting">CONECTANDO…</span>
+          {tuya && <p>Despertando la cámara: puede tardar hasta un minuto.</p>}
         </div>
       )}
 
@@ -153,6 +188,14 @@ export function LivePlayer({ camera }: { camera: Camera }) {
               <strong>Transmisión detenida</strong>
               <p>La cámara sigue despierta. Mirar en vivo la mantiene encendida y consume batería.</p>
               <button className="btn btn-primary btn-lg" onClick={() => setStoppedActivation(null)}>
+                Ver en vivo
+              </button>
+            </>
+          ) : tuya ? (
+            <>
+              <strong>La cámara está en reposo</strong>
+              <p>Graba sola con el movimiento, el timbre o las alarmas. Ver en vivo la despierta: tarda hasta un minuto y gasta batería.</p>
+              <button className="btn btn-primary btn-lg" onClick={() => setOnDemand(true)}>
                 Ver en vivo
               </button>
             </>

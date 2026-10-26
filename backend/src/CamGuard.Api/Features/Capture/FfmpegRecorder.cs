@@ -12,14 +12,21 @@ public class CaptureOptions
 
     /// <summary>Tamaño mínimo para considerar que el clip tiene video.</summary>
     public long MinClipBytes { get; set; } = 10 * 1024;
+
+    /// <summary>Margen sobre el tope del clip antes de forzar el cierre de FFmpeg (iCSee; las Tuya usan Tuya:StartupGraceSeconds).</summary>
+    public int StartupGraceSeconds { get; set; } = 30;
 }
 
 public record RecordResult(TimeSpan Elapsed, int ExitCode);
 
 public interface IRecorder
 {
+    /// <param name="rotation">Giro a la derecha en grados; se guarda como metadato del MP4.</param>
+    /// <param name="startupGrace">Margen sobre <paramref name="maxDuration"/> antes de forzar el cierre (espera del primer cuadro).</param>
+    /// <param name="readTimeout">Tiempo sin datos tras el cual FFmpeg da el stream por cortado (también al arrancar).</param>
     /// <param name="stop">Al cancelarse, FFmpeg cierra el archivo limpiamente (cámara dormida).</param>
-    Task<RecordResult> RecordAsync(string rtspUrl, string outputPath, TimeSpan maxDuration, CancellationToken stop, CancellationToken ct);
+    Task<RecordResult> RecordAsync(string rtspUrl, string outputPath, TimeSpan maxDuration, int rotation, TimeSpan startupGrace,
+        TimeSpan readTimeout, CancellationToken stop, CancellationToken ct);
 
     Task<bool> CreateThumbnailAsync(string videoPath, string thumbnailPath, CancellationToken ct);
 }
@@ -29,12 +36,22 @@ public class FfmpegRecorder(IOptions<CaptureOptions> options, ILogger<FfmpegReco
     /// <summary>
     /// Copia el video sin recodificar. El audio de las iCSee suele ser G.711,
     /// que MP4 no admite, así que se convierte a AAC (costo mínimo).
+    /// La rotación va como metadato (display matrix): no recodifica y el navegador la respeta.
     /// </summary>
-    public static IReadOnlyList<string> RecordArguments(string rtspUrl, string outputPath, TimeSpan maxDuration) =>
+    public static readonly TimeSpan DefaultReadTimeout = TimeSpan.FromSeconds(10);
+
+    public static IReadOnlyList<string> RecordArguments(string rtspUrl, string outputPath, TimeSpan maxDuration, int rotation = 0,
+        TimeSpan? readTimeout = null) =>
     [
         "-hide_banner", "-loglevel", "error",
         "-rtsp_transport", "tcp",
-        "-timeout", "10000000", // 10 s sin datos = stream cortado
+        // Sin datos durante este tiempo = stream cortado (en microsegundos). Tuya necesita más: tarda en despertar.
+        "-timeout", Microseconds(readTimeout ?? DefaultReadTimeout),
+        // Con una espera larga también se analiza más: Tuya manda audio antes que el primer cuadro clave y su
+        // SDP no trae los parámetros del video, así que el tamaño solo se conoce con ese cuadro.
+        .. readTimeout > DefaultReadTimeout ? new[] { "-analyzeduration", Microseconds(readTimeout.Value) } : Array.Empty<string>(),
+        // display_rotation es una opción de entrada y cuenta en sentido antihorario.
+        .. rotation % 360 == 0 ? Array.Empty<string>() : new[] { "-display_rotation", (-rotation).ToString(CultureInfo.InvariantCulture) },
         "-i", rtspUrl,
         "-t", maxDuration.TotalSeconds.ToString(CultureInfo.InvariantCulture),
         "-map", "0:v:0", "-map", "0:a:0?",
@@ -42,6 +59,8 @@ public class FfmpegRecorder(IOptions<CaptureOptions> options, ILogger<FfmpegReco
         "-movflags", "+faststart",
         "-y", outputPath
     ];
+
+    private static string Microseconds(TimeSpan value) => ((long)value.TotalMicroseconds).ToString(CultureInfo.InvariantCulture);
 
     public static IReadOnlyList<string> ThumbnailArguments(string videoPath, string thumbnailPath, double seekSeconds) =>
     [
@@ -52,10 +71,11 @@ public class FfmpegRecorder(IOptions<CaptureOptions> options, ILogger<FfmpegReco
         "-y", thumbnailPath
     ];
 
-    public async Task<RecordResult> RecordAsync(string rtspUrl, string outputPath, TimeSpan maxDuration, CancellationToken stop, CancellationToken ct)
+    public async Task<RecordResult> RecordAsync(string rtspUrl, string outputPath, TimeSpan maxDuration, int rotation, TimeSpan startupGrace,
+        TimeSpan readTimeout, CancellationToken stop, CancellationToken ct)
     {
         // stdin redirigido: escribir 'q' hace que FFmpeg cierre el MP4 correctamente.
-        using var process = Start(RecordArguments(rtspUrl, outputPath, maxDuration), redirectStdin: true);
+        using var process = Start(RecordArguments(rtspUrl, outputPath, maxDuration, rotation, readTimeout), redirectStdin: true);
         var stopwatch = Stopwatch.StartNew();
 
         await using var onStop = stop.Register(() =>
@@ -72,7 +92,8 @@ public class FfmpegRecorder(IOptions<CaptureOptions> options, ILogger<FfmpegReco
         });
 
         var stderr = process.StandardError.ReadToEndAsync(ct);
-        var hardLimit = maxDuration + TimeSpan.FromSeconds(30);
+        // Margen para el arranque y para que FFmpeg detecte por sí mismo un corte al final y cierre el MP4.
+        var hardLimit = maxDuration + startupGrace + readTimeout;
         using var limit = CancellationTokenSource.CreateLinkedTokenSource(ct);
         limit.CancelAfter(hardLimit);
 

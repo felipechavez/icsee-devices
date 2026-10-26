@@ -73,7 +73,7 @@ $envValues = Read-DotEnv '.env'
 $required = @(
     'CAMERA_IP', 'CAMERA_PASSWORD', 'HOST_IP',
     'GO2RTC_USER', 'GO2RTC_PASSWORD',
-    'SQL_PASSWORD', 'PUBLIC_URL',
+    'DB_PASSWORD', 'PUBLIC_URL',
     'KC_DB_PASSWORD', 'KC_ADMIN_PASSWORD', 'CAMGUARD_ADMIN_EMAIL', 'CAMGUARD_ADMIN_PASSWORD',
     'R2_ENDPOINT', 'R2_ACCESS_KEY', 'R2_SECRET_KEY'
 )
@@ -87,6 +87,9 @@ if ($envValues['PUBLIC_URL'].EndsWith('/')) {
 if ($envValues['GO2RTC_PASSWORD'] -notmatch '^[A-Za-z0-9]+$') {
     Fail 'GO2RTC_PASSWORD solo admite letras y números (va dentro de la URL rtsp://).'
 }
+if ($envValues['DB_PASSWORD'] -notmatch '^[A-Za-z0-9]+$') {
+    Fail 'DB_PASSWORD solo admite letras y números (va dentro de la cadena de conexión).'
+}
 $localIps = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue).IPAddress
 if ($localIps -and $envValues['HOST_IP'] -notin $localIps) {
     Write-Host "AVISO: HOST_IP=$($envValues['HOST_IP']) no es una IP de este equipo ($($localIps -join ', ')). El video en vivo (WebRTC) no va a conectar." -ForegroundColor Yellow
@@ -96,7 +99,7 @@ if ($envValues['R2_ENDPOINT'] -match '<account-id>') {
 }
 
 # 3. Puerto de la web libre (o ya en uso por nuestro propio contenedor web)
-$webPort = if ($envValues['WEB_PORT']) { $envValues['WEB_PORT'] } else { '8080' }
+$webPort = if ($envValues['WEB_PORT']) { $envValues['WEB_PORT'] } else { '8090' }
 $holder = docker ps --format '{{.Names}}|{{.Ports}}' |
     Where-Object { $_ -match ":$webPort->" -and $_ -notmatch '^icsee-devices-web-' }
 if ($holder) {

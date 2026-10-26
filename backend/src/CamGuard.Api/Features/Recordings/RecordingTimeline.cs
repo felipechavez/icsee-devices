@@ -38,7 +38,9 @@ public static class RecordingTimeline
                     if (errors.Count > 0)
                         return Results.ValidationProblem(errors);
 
-                    var query = db.Recordings.AsNoTracking().Where(r => r.StartedAt >= from && r.StartedAt < to);
+                    // Postgres (timestamptz) solo acepta DateTimeOffset en UTC; el cliente puede mandar su zona.
+                    var (fromUtc, toUtc) = (from.ToUniversalTime(), to.ToUniversalTime());
+                    var query = db.Recordings.AsNoTracking().Where(r => r.StartedAt >= fromUtc && r.StartedAt < toUtc);
                     if (cameraId is not null) query = query.Where(r => r.CameraId == cameraId);
 
                     var items = await query

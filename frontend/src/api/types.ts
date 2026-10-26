@@ -2,9 +2,17 @@ export type RecordingStatus = 'Recording' | 'Uploading' | 'Uploaded' | 'Failed'
 
 export type MotionSensitivity = 'Low' | 'Medium' | 'High'
 
+/** iCSee: DVRIP en la LAN. Tuya: cerradura con cámara, todo por la nube de Tuya. */
+export type CameraKind = 'Icsee' | 'Tuya'
+
+/** Giro a la derecha en grados, para cámaras montadas de lado. */
+export type Rotation = 0 | 90 | 180 | 270
+
 export interface Camera {
   id: number
   name: string
+  kind: CameraKind
+  /** Vacía en las Tuya. */
   ip: string
   dvripPort: number
   go2rtcStream: string
@@ -27,19 +35,28 @@ export interface Camera {
   lastRecordingAt: string | null
   lastThumbnailUrl: string | null
   clipsToday: number | null
+  /** Solo en las Tuya. */
+  tuyaDeviceId: string | null
+  rotation: Rotation
+  /** Device IDs de sensores Tuya, separados por coma, cuyo movimiento despierta esta cámara. */
+  tuyaTriggerDeviceIds: string | null
 }
 
 /** Alta y edición. Al editar, una contraseña vacía conserva la actual. */
 export type CameraInput = Pick<
   Camera,
-  'name' | 'ip' | 'dvripPort' | 'go2rtcStream' | 'enabled' | 'username' | 'motionSensitivity'
+  'name' | 'kind' | 'ip' | 'dvripPort' | 'go2rtcStream' | 'enabled' | 'username' | 'motionSensitivity' | 'rotation'
 > & {
   model: string
   password: string
+  tuyaDeviceId: string
+  tuyaTriggerDeviceIds: string
 }
 
 export interface TestConnectionRequest {
   cameraId?: number
+  kind: CameraKind
+  tuyaDeviceId?: string
   ip: string
   dvripPort: number
   username: string

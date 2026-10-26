@@ -45,9 +45,12 @@ public static class ListRecordings
                 {
                     var (p, size) = NormalizePaging(page, pageSize);
 
+                    // Postgres (timestamptz) solo acepta DateTimeOffset en UTC; el cliente puede mandar su zona.
+                    var fromUtc = from?.ToUniversalTime();
+                    var toUtc = to?.ToUniversalTime();
                     var query = db.Recordings.AsNoTracking();
-                    if (from is not null) query = query.Where(r => r.StartedAt >= from);
-                    if (to is not null) query = query.Where(r => r.StartedAt < to);
+                    if (fromUtc is not null) query = query.Where(r => r.StartedAt >= fromUtc);
+                    if (toUtc is not null) query = query.Where(r => r.StartedAt < toUtc);
                     if (cameraId is not null) query = query.Where(r => r.CameraId == cameraId);
                     if (status is not null) query = query.Where(r => r.Status == status);
 

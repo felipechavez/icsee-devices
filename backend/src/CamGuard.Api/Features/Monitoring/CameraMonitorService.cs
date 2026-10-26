@@ -1,8 +1,5 @@
 using System.Net.Sockets;
 using CamGuard.Api.Common.Data;
-using CamGuard.Api.Common.Events;
-using CamGuard.Api.Common.Realtime;
-using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -43,16 +40,14 @@ public class TcpPortProbe : IPortProbe
 }
 
 /// <summary>
-/// Sondea cada segundo el puerto DVRIP (34567) de las cámaras habilitadas.
-/// La cámara a batería solo lo abre cuando despierta por movimiento.
+/// Sondea cada segundo el puerto DVRIP (34567) de las iCSee habilitadas.
+/// La cámara a batería solo lo abre cuando despierta por movimiento. Las Tuya avisan por Features/Tuya.
 /// </summary>
 public class CameraMonitorService(
     IServiceScopeFactory scopeFactory,
     IPortProbe probe,
     CameraStateStore states,
-    CameraEventChannel events,
-    CameraAwakeChannel awakeEvents,
-    IHubContext<EventsHub, IEventsClient> hub,
+    CameraStatePublisher publisher,
     IOptions<MonitorOptions> options,
     TimeProvider clock,
     ILogger<CameraMonitorService> logger) : BackgroundService
@@ -87,7 +82,7 @@ public class CameraMonitorService(
         using var scope = scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var previous = _cameras;
-        _cameras = await db.Cameras.AsNoTracking().Where(c => c.Enabled).ToListAsync(ct);
+        _cameras = await db.Cameras.AsNoTracking().Where(c => c.Enabled && c.Kind == CameraKind.Icsee).ToListAsync(ct);
         _camerasLoadedAt = clock.GetUtcNow();
 
         // Cámaras borradas o deshabilitadas: se cierra su activación y, si vuelven, empiezan de cero.
@@ -98,7 +93,7 @@ public class CameraMonitorService(
             if (!states.Get(removed.Id).IsAwake) continue;
             try
             {
-                await PublishAsync(removed, CameraEventType.Asleep, ct);
+                await publisher.PublishAsync(removed, CameraEventType.Asleep, ct);
             }
             catch (Exception ex) when (!ct.IsCancellationRequested)
             {
@@ -126,26 +121,8 @@ public class CameraMonitorService(
 
         if (change is { } type)
         {
-            await PublishAsync(camera, type, ct);
+            await publisher.PublishAsync(camera, type, ct);
         }
-    }
-
-    private async Task PublishAsync(Camera camera, CameraEventType type, CancellationToken ct)
-    {
-        var now = clock.GetUtcNow();
-        logger.LogInformation("Cámara {Name}: {Type}", camera.Name, type);
-
-        states.Set(camera.Id, type == CameraEventType.Awake, now);
-        await events.Writer.WriteAsync(new CameraStateChanged(camera.Id, type, now), ct);
-        if (type == CameraEventType.Awake) await awakeEvents.Writer.WriteAsync(camera.Id, ct);
-
-        var message = new CameraStatusMessage(camera.Id, now);
-        await (type == CameraEventType.Awake ? hub.Clients.All.CameraAwake(message) : hub.Clients.All.CameraAsleep(message));
-
-        using var scope = scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        db.CameraEvents.Add(new CameraEvent { CameraId = camera.Id, Type = type, OccurredAt = now });
-        await db.SaveChangesAsync(ct);
     }
 }
 
@@ -155,6 +132,7 @@ public static class MonitoringFeature
     {
         services.Configure<MonitorOptions>(configuration.GetSection(MonitorOptions.Section));
         services.AddSingleton<CameraStateStore>();
+        services.AddSingleton<CameraStatePublisher>();
         services.AddSingleton<IPortProbe, TcpPortProbe>();
         services.AddHostedService<CameraMonitorService>();
         return services;

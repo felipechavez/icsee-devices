@@ -1,4 +1,4 @@
-# Muestra cada cambio despierta/dormida del puerto DVRIP, igual que CameraMonitorService.
+﻿# Muestra cada cambio despierta/dormida del puerto DVRIP, igual que CameraMonitorService.
 param(
     [string]$Ip = "192.168.1.86",
     [int]$Port = 34567,

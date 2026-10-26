@@ -23,7 +23,7 @@ public static class DatabaseInitializer
 {
     /// <summary>
     /// Aplica migraciones y siembra la cámara. Reintenta porque en Docker
-    /// SQL Server tarda unos segundos en aceptar conexiones.
+    /// Postgres tarda unos segundos en aceptar conexiones.
     /// </summary>
     public static async Task InitializeAsync(IServiceProvider services, CancellationToken ct = default)
     {

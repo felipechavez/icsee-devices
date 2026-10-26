@@ -48,6 +48,31 @@ public class Go2rtcStreamsClient(HttpClient http)
         return streams;
     }
 
+    /// <summary>Bytes recibidos por las conexiones abiertas de un stream; null si no existe o no tiene ninguna.</summary>
+    public async Task<long?> GetReceivedBytesAsync(string name, CancellationToken ct)
+    {
+        using var response = await http.GetAsync($"api/streams?src={Uri.EscapeDataString(name)}", ct);
+        if (!response.IsSuccessStatusCode) return null;
+        await using var body = await response.Content.ReadAsStreamAsync(ct);
+        using var json = await JsonDocument.ParseAsync(body, cancellationToken: ct);
+
+        if (json.RootElement.ValueKind != JsonValueKind.Object
+            || !json.RootElement.TryGetProperty("producers", out var producers)
+            || producers.ValueKind != JsonValueKind.Array
+            || producers.GetArrayLength() == 0)
+            return null;
+
+        long total = 0;
+        foreach (var producer in producers.EnumerateArray())
+        {
+            if (producer.ValueKind == JsonValueKind.Object
+                && producer.TryGetProperty("bytes_recv", out var bytes)
+                && bytes.TryGetInt64(out var value))
+                total += value;
+        }
+        return total;
+    }
+
     /// <summary>
     /// PATCH crea el stream o cambia su origen sin cortar una conexión abierta, y a diferencia
     /// de PUT no intenta escribir go2rtc.yaml (montado de solo lectura).
@@ -145,8 +170,16 @@ public class StreamSyncService(
         }
 
         var desired = new Dictionary<string, string>();
+        var managed = new HashSet<string>();
         foreach (var camera in cameras)
         {
+            // La URL de video de un dispositivo Tuya caduca: Features/Tuya la registra justo antes de usarla.
+            if (camera.Kind == CameraKind.Tuya)
+            {
+                managed.Add(camera.Go2rtcStream);
+                continue;
+            }
+
             var password = secrets.TryUnprotect(camera.PasswordProtected);
             if (password is null)
             {
@@ -160,7 +193,7 @@ public class StreamSyncService(
         }
 
         var current = await go2rtc.GetStreamsAsync(ct);
-        var plan = StreamSyncPlan.Compute(desired, current, _applied);
+        var plan = StreamSyncPlan.Compute(desired, current, _applied, managed);
 
         foreach (var (name, source) in plan.ToPatch)
         {

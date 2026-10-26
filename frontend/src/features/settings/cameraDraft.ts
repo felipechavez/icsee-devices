@@ -8,6 +8,7 @@ export interface CameraDraft extends CameraInput {
 export function toDraft(camera: Camera): CameraDraft {
   return {
     name: camera.name,
+    kind: camera.kind,
     model: camera.model ?? '',
     ip: camera.ip,
     dvripPort: camera.dvripPort,
@@ -16,12 +17,16 @@ export function toDraft(camera: Camera): CameraDraft {
     username: camera.username,
     password: '',
     motionSensitivity: camera.motionSensitivity,
+    tuyaDeviceId: camera.tuyaDeviceId ?? '',
+    tuyaTriggerDeviceIds: camera.tuyaTriggerDeviceIds ?? '',
+    rotation: camera.rotation,
     streamEdited: true,
   }
 }
 
 export const emptyDraft: CameraDraft = {
   name: '',
+  kind: 'Icsee',
   model: '',
   ip: '',
   dvripPort: 34567,
@@ -30,6 +35,9 @@ export const emptyDraft: CameraDraft = {
   username: 'admin',
   password: '',
   motionSensitivity: 'Medium',
+  tuyaDeviceId: '',
+  tuyaTriggerDeviceIds: '',
+  rotation: 0,
   streamEdited: false,
 }
 
@@ -50,4 +58,3 @@ export function isChanged(draft: CameraDraft, camera?: Camera) {
   const saved = toDraft(camera)
   return (Object.keys(saved) as (keyof CameraDraft)[]).some((k) => k !== 'streamEdited' && draft[k] !== saved[k])
 }
-

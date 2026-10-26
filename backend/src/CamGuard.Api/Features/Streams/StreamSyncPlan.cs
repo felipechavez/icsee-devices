@@ -23,10 +23,12 @@ public record StreamSyncPlan(IReadOnlyList<KeyValuePair<string, string>> ToPatch
     /// <param name="desired">Stream → origen de cada cámara habilitada.</param>
     /// <param name="current">Streams que go2rtc tiene ahora, con su origen si lo informa (solo lo hace sin conexión activa).</param>
     /// <param name="applied">Último origen que esta instancia registró en cada stream.</param>
+    /// <param name="managedElsewhere">Streams de cámaras cuyo origen se registra al usarlos (dispositivos Tuya): no se tocan.</param>
     public static StreamSyncPlan Compute(
         IReadOnlyDictionary<string, string> desired,
         IReadOnlyDictionary<string, string?> current,
-        IReadOnlyDictionary<string, string> applied)
+        IReadOnlyDictionary<string, string> applied,
+        IReadOnlySet<string>? managedElsewhere = null)
     {
         var toPatch = desired
             .Where(d =>
@@ -39,7 +41,7 @@ public record StreamSyncPlan(IReadOnlyList<KeyValuePair<string, string>> ToPatch
             .ToList();
 
         var toDelete = current.Keys
-            .Where(name => !desired.ContainsKey(name))
+            .Where(name => !desired.ContainsKey(name) && managedElsewhere?.Contains(name) != true)
             .OrderBy(name => name, StringComparer.Ordinal)
             .ToList();
 

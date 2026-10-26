@@ -1,9 +1,11 @@
-# Graba un clip desde el RTSP de go2rtc, con los mismos parámetros que usa la API.
+﻿# Graba un clip desde el RTSP de go2rtc, con los mismos parámetros que usa la API.
 # Si FFmpeg no está instalado en Windows, usa el que trae el contenedor de go2rtc.
 param(
     [int]$Seconds = 20,
     [string]$Url = "rtsp://localhost:8554/icsee",
-    [string]$Container = "go2rtc-poc"
+    [string]$Container = "go2rtc-poc",
+    # Giro en grados a la derecha (0, 90, 180, 270). Se guarda como metadato del MP4: no recodifica.
+    [ValidateSet(0, 90, 180, 270)] [int]$Rotate = 0
 )
 
 $dir = Join-Path $PSScriptRoot "clips"
@@ -13,7 +15,11 @@ $out = Join-Path $dir $name
 
 $ffmpegArgs = @(
     "-hide_banner", "-loglevel", "warning",
-    "-rtsp_transport", "tcp", "-timeout", "10000000",
+    "-rtsp_transport", "tcp", "-timeout", "10000000"
+)
+# display_rotation va antes de -i y cuenta en sentido antihorario.
+if ($Rotate -ne 0) { $ffmpegArgs += "-display_rotation", (-$Rotate) }
+$ffmpegArgs += @(
     "-i", $Url,
     "-t", $Seconds,
     "-map", "0:v:0", "-map", "0:a:0?",

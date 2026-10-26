@@ -116,4 +116,87 @@ public class CameraInputTests
 
         await Assert.That(errors.Keys).Contains(nameof(CameraInput.MotionSensitivity));
     }
+
+    private static CameraInput ValidTuya() =>
+        new("Chapa de casa", "", 0, "chapa", true, "", Kind: CameraKind.Tuya, TuyaDeviceId: "eb8d8e837c0a688a86f1kb", Rotation: 90);
+
+    [Test]
+    public async Task Validate_TuyaWithoutIpOrCredentials_Accepted()
+    {
+        await Assert.That(CameraInput.Validate(ValidTuya(), isNew: true)).IsEmpty();
+    }
+
+    [Test]
+    [Arguments(null)]
+    [Arguments("")]
+    [Arguments("corto")]
+    [Arguments("eb8d8e837c/../x")]
+    public async Task Validate_TuyaInvalidDeviceId_Rejected(string? deviceId)
+    {
+        var errors = CameraInput.Validate(ValidTuya() with { TuyaDeviceId = deviceId }, isNew: true);
+
+        await Assert.That(errors.Keys).Contains(nameof(CameraInput.TuyaDeviceId));
+    }
+
+    [Test]
+    [Arguments(45)]
+    [Arguments(360)]
+    [Arguments(-90)]
+    public async Task Validate_InvalidRotation_Rejected(int rotation)
+    {
+        var errors = CameraInput.Validate(Valid() with { Rotation = rotation }, isNew: false);
+
+        await Assert.That(errors.Keys).Contains(nameof(CameraInput.Rotation));
+    }
+
+    [Test]
+    public async Task Validate_UnknownKind_Rejected()
+    {
+        var errors = CameraInput.Validate(Valid() with { Kind = (CameraKind)9 }, isNew: true);
+
+        await Assert.That(errors.Keys).Contains(nameof(CameraInput.Kind));
+    }
+
+    [Test]
+    public async Task ValidateKindUnchanged_DifferentKind_Rejected()
+    {
+        var camera = new Camera { Name = "Entrada", Ip = "192.168.1.86", Go2rtcStream = "icsee", Kind = CameraKind.Icsee };
+
+        await Assert.That(CameraInput.ValidateKindUnchanged(ValidTuya(), camera).Keys).Contains(nameof(CameraInput.Kind));
+        await Assert.That(CameraInput.ValidateKindUnchanged(Valid(), camera)).IsEmpty();
+    }
+
+    [Test]
+    public async Task ApplyTo_TuyaTriggers_NormalizedCommaSeparated()
+    {
+        var camera = new Camera { Name = "", Ip = "", Go2rtcStream = "" };
+
+        (ValidTuya() with { TuyaTriggerDeviceIds = " eb38d1b64239595ec2jrvu ; eb38d1b64239595ec2jrvu\nebd88662226f705967vylf " }).ApplyTo(camera, null!);
+
+        await Assert.That(camera.TuyaTriggerDeviceIds).IsEqualTo("eb38d1b64239595ec2jrvu,ebd88662226f705967vylf");
+    }
+
+    [Test]
+    [Arguments("corto")]
+    [Arguments("eb8d8e837c0a688a86f1kb")]
+    [Arguments("eb38d1b64239595ec2jrvu/../x")]
+    public async Task Validate_InvalidTriggerDevice_Rejected(string triggers)
+    {
+        var errors = CameraInput.Validate(ValidTuya() with { TuyaTriggerDeviceIds = triggers }, isNew: true);
+
+        await Assert.That(errors.Keys).Contains(nameof(CameraInput.TuyaTriggerDeviceIds));
+    }
+
+    [Test]
+    public async Task ApplyTo_Tuya_ClearsIpAndKeepsDeviceId()
+    {
+        var camera = new Camera { Name = "", Ip = "192.168.1.5", Go2rtcStream = "" };
+
+        ValidTuya().ApplyTo(camera, null!);
+
+        await Assert.That(camera.Kind).IsEqualTo(CameraKind.Tuya);
+        await Assert.That(camera.Ip).IsEqualTo("");
+        await Assert.That(camera.TuyaDeviceId).IsEqualTo("eb8d8e837c0a688a86f1kb");
+        await Assert.That(camera.Rotation).IsEqualTo(90);
+    }
 }

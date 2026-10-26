@@ -1,4 +1,4 @@
-import type { Camera, MotionSensitivity, TestConnectionResult } from '../../api/types'
+import type { Camera, CameraKind, MotionSensitivity, Rotation, TestConnectionResult } from '../../api/types'
 import { BatteryBadge } from '../../components/BatteryBadge'
 import { Segmented } from '../../components/Segmented'
 import { Switch } from '../../components/Switch'
@@ -9,6 +9,18 @@ const sensitivities: { value: MotionSensitivity; label: string }[] = [
   { value: 'Low', label: 'Baja' },
   { value: 'Medium', label: 'Media' },
   { value: 'High', label: 'Alta' },
+]
+
+const kinds: { value: CameraKind; label: string }[] = [
+  { value: 'Icsee', label: 'iCSee' },
+  { value: 'Tuya', label: 'Tuya' },
+]
+
+const rotations: { value: `${Rotation}`; label: string }[] = [
+  { value: '0', label: '0°' },
+  { value: '90', label: '90°' },
+  { value: '180', label: '180°' },
+  { value: '270', label: '270°' },
 ]
 
 interface Props {
@@ -29,8 +41,9 @@ export function CameraPanel({ camera, draft, open, onToggle, onChange, error, on
   const status = camera ? cameraStatus(camera) : null
   const pending = camera && (camera.sensitivityPending || draft.motionSensitivity !== camera.motionSensitivity)
   const id = `cam-${camera?.id ?? 'new'}`
+  const tuya = draft.kind === 'Tuya'
 
-  const text = (key: 'name' | 'model' | 'ip' | 'username' | 'password' | 'go2rtcStream') => ({
+  const text = (key: 'name' | 'model' | 'ip' | 'username' | 'password' | 'go2rtcStream' | 'tuyaDeviceId' | 'tuyaTriggerDeviceIds') => ({
     value: draft[key],
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => onChange({ [key]: e.target.value }),
   })
@@ -47,7 +60,8 @@ export function CameraPanel({ camera, draft, open, onToggle, onChange, error, on
             {status ? (
               <>
                 <span className="dot" aria-hidden />
-                {status.label} · <span className="mono">{camera!.ip}</span>
+                {status.label} ·{' '}
+                <span className="mono">{camera!.kind === 'Tuya' ? `Tuya · ${camera!.tuyaDeviceId}` : camera!.ip}</span>
               </>
             ) : (
               'Sin guardar'
@@ -63,6 +77,19 @@ export function CameraPanel({ camera, draft, open, onToggle, onChange, error, on
       {open && (
         <>
           <div className="cam-acc-body" id={id}>
+            {!camera && (
+              <div className="cam-acc-wide">
+                <div>
+                  <span className="row-label">Tipo</span>
+                  <span className="row-hint">
+                    {tuya
+                      ? 'Cámara, timbre o cerradura con cámara de la app Tuya Smart: graba con el movimiento, el timbre o las alarmas.'
+                      : 'Cámara iCSee a batería en tu red local: graba al detectar movimiento.'}
+                  </span>
+                </div>
+                <Segmented className="seg-input" label="Tipo de cámara" value={draft.kind} options={kinds} onChange={(kind) => onChange({ kind })} />
+              </div>
+            )}
             <label className="field">
               <span>Nombre</span>
               <input className="input" required maxLength={100} {...text('name')} />
@@ -71,38 +98,61 @@ export function CameraPanel({ camera, draft, open, onToggle, onChange, error, on
               <span>Modelo</span>
               <input className="input" maxLength={100} placeholder="Se completa al conectar" {...text('model')} />
             </label>
-            <label className="field">
-              <span>Dirección IP</span>
-              <input className="input mono" inputMode="decimal" placeholder="192.168.1.86" {...text('ip')} />
-            </label>
-            <label className="field">
-              <span>Puerto DVRIP</span>
-              <input
-                className="input mono"
-                type="number"
-                min={1}
-                max={65535}
-                value={Number.isNaN(draft.dvripPort) ? '' : draft.dvripPort}
-                onChange={(e) => onChange({ dvripPort: e.target.valueAsNumber })}
-              />
-            </label>
-            <label className="field">
-              <span>Usuario</span>
-              <input className="input" maxLength={64} autoComplete="off" {...text('username')} />
-            </label>
-            <label className="field">
-              <span>Contraseña</span>
-              <input
-                className="input"
-                type="password"
-                maxLength={128}
-                autoComplete="new-password"
-                placeholder={camera?.hasPassword ? '••••••••  (sin cambios)' : ''}
-                aria-invalid={camera && !camera.hasPassword && !draft.password ? true : undefined}
-                {...text('password')}
-              />
-              {camera && !camera.hasPassword && <small className="error">Falta: sin ella no se puede abrir la cámara.</small>}
-            </label>
+            {tuya ? (
+              <>
+                <label className="field">
+                  <span>Device ID</span>
+                  <input className="input mono" maxLength={64} autoComplete="off" placeholder="eb8d8e837c0a688a86f1kb" {...text('tuyaDeviceId')} />
+                  <small>Tuya Developer Platform → tu proyecto → Devices.</small>
+                </label>
+                <label className="field">
+                  <span>Sensores que la activan</span>
+                  <input
+                    className="input mono"
+                    maxLength={400}
+                    autoComplete="off"
+                    placeholder="Opcional: Device ID de un sensor de movimiento"
+                    {...text('tuyaTriggerDeviceIds')}
+                  />
+                  <small>Su movimiento despierta y graba esta cámara. Varios, separados por coma.</small>
+                </label>
+              </>
+            ) : (
+              <>
+              <label className="field">
+                <span>Dirección IP</span>
+                <input className="input mono" inputMode="decimal" placeholder="192.168.1.86" {...text('ip')} />
+              </label>
+              <label className="field">
+                <span>Puerto DVRIP</span>
+                <input
+                  className="input mono"
+                  type="number"
+                  min={1}
+                  max={65535}
+                  value={Number.isNaN(draft.dvripPort) ? '' : draft.dvripPort}
+                  onChange={(e) => onChange({ dvripPort: e.target.valueAsNumber })}
+                />
+              </label>
+              <label className="field">
+                <span>Usuario</span>
+                <input className="input" maxLength={64} autoComplete="off" {...text('username')} />
+              </label>
+              <label className="field">
+                <span>Contraseña</span>
+                <input
+                  className="input"
+                  type="password"
+                  maxLength={128}
+                  autoComplete="new-password"
+                  placeholder={camera?.hasPassword ? '••••••••  (sin cambios)' : ''}
+                  aria-invalid={camera && !camera.hasPassword && !draft.password ? true : undefined}
+                  {...text('password')}
+                />
+                {camera && !camera.hasPassword && <small className="error">Falta: sin ella no se puede abrir la cámara.</small>}
+              </label>
+              </>
+            )}
             <label className="field">
               <span>Stream en go2rtc</span>
               <input
@@ -115,27 +165,51 @@ export function CameraPanel({ camera, draft, open, onToggle, onChange, error, on
               <small>Nombre interno; se registra solo.</small>
             </label>
 
+            {!tuya && (
+              <div className="cam-acc-wide">
+                <div>
+                  <span className="row-label">Sensibilidad al movimiento</span>
+                  <span className="row-hint">Más alta detecta antes, pero graba más falsos positivos.</span>
+                  {pending && <span className="hint-pending">Se aplicará cuando la cámara despierte.</span>}
+                </div>
+                <Segmented
+                  className="seg-input"
+                  label="Sensibilidad al movimiento"
+                  value={draft.motionSensitivity}
+                  options={sensitivities}
+                  onChange={(motionSensitivity) => onChange({ motionSensitivity })}
+                />
+              </div>
+            )}
+
             <div className="cam-acc-wide">
               <div>
-                <span className="row-label">Sensibilidad al movimiento</span>
-                <span className="row-hint">Más alta detecta antes, pero graba más falsos positivos.</span>
-                {pending && <span className="hint-pending">Se aplicará cuando la cámara despierte.</span>}
+                <span className="row-label">Rotación</span>
+                <span className="row-hint">Para cámaras montadas de lado: gira el video y los clips a la derecha.</span>
               </div>
               <Segmented
                 className="seg-input"
-                label="Sensibilidad al movimiento"
-                value={draft.motionSensitivity}
-                options={sensitivities}
-                onChange={(motionSensitivity) => onChange({ motionSensitivity })}
+                label="Rotación"
+                value={`${draft.rotation}` as `${Rotation}`}
+                options={rotations}
+                onChange={(value) => onChange({ rotation: Number(value) as Rotation })}
               />
             </div>
 
             <div className="cam-acc-wide">
               <div>
-                <span className="row-label">Grabar al detectar movimiento</span>
-                <span className="row-hint">Desactívala para dejar de grabar sin eliminar la cámara.</span>
+                <span className="row-label">{tuya ? 'Grabar con eventos de Tuya' : 'Grabar al detectar movimiento'}</span>
+                <span className="row-hint">
+                  {tuya
+                    ? 'Desactívala para dejar de grabar y de recibir avisos del dispositivo sin eliminarlo.'
+                    : 'Desactívala para dejar de grabar sin eliminar la cámara.'}
+                </span>
               </div>
-              <Switch label="Grabar al detectar movimiento" checked={draft.enabled} onChange={(enabled) => onChange({ enabled })} />
+              <Switch
+                label={tuya ? 'Grabar con eventos de Tuya' : 'Grabar al detectar movimiento'}
+                checked={draft.enabled}
+                onChange={(enabled) => onChange({ enabled })}
+              />
             </div>
           </div>
 

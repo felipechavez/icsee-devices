@@ -23,7 +23,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(c => c.PasswordProtected).HasMaxLength(1000);
             e.Property(c => c.Model).HasMaxLength(100);
             e.Property(c => c.MotionSensitivity).HasConversion<string>().HasMaxLength(20);
+            e.Property(c => c.Kind).HasConversion<string>().HasMaxLength(20).HasDefaultValue(CameraKind.Icsee).HasSentinel(CameraKind.Icsee);
+            e.Property(c => c.TuyaDeviceId).HasMaxLength(64);
+            e.Property(c => c.TuyaTriggerDeviceIds).HasMaxLength(400);
             e.HasIndex(c => c.Go2rtcStream).IsUnique();
+            e.HasIndex(c => c.TuyaDeviceId).IsUnique();
         });
 
         modelBuilder.Entity<Recording>(e =>
@@ -39,6 +43,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<CameraEvent>(e =>
         {
             e.Property(ev => ev.Type).HasConversion<string>().HasMaxLength(20);
+            e.Property(ev => ev.Detail).HasMaxLength(100);
             e.HasIndex(ev => ev.OccurredAt);
             e.HasOne<Camera>().WithMany().HasForeignKey(ev => ev.CameraId).OnDelete(DeleteBehavior.Cascade);
         });

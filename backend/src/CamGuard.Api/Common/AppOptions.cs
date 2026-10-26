@@ -11,7 +11,7 @@ public class AppOptions
     public string DataDirectory { get; set; } = "data";
 
     /// <summary>URL pública de la web, usada en los enlaces de las notificaciones.</summary>
-    public string PublicBaseUrl { get; set; } = "http://localhost:8080";
+    public string PublicBaseUrl { get; set; } = "http://localhost:8090";
 }
 
 public class Go2rtcOptions

@@ -4,6 +4,7 @@ using CamGuard.Api.Common.Data;
 using CamGuard.Api.Common.Events;
 using CamGuard.Api.Common.Realtime;
 using CamGuard.Api.Common.Storage;
+using CamGuard.Api.Features.Tuya;
 using CamGuard.Api.Features.Upload;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
@@ -24,6 +25,7 @@ public class RecordingService(
     IOptions<Go2rtcOptions> go2rtc,
     IOptions<AppOptions> appOptions,
     IOptions<CaptureOptions> captureOptions,
+    IOptions<TuyaOptions> tuyaOptions,
     IHubContext<EventsHub, IEventsClient> hub,
     TimeProvider clock,
     ILogger<RecordingService> logger) : BackgroundService
@@ -77,6 +79,22 @@ public class RecordingService(
             return;
         }
 
+        // La URL de video de un dispositivo Tuya caduca y el evento (p. ej. el timbre) corta la sesión
+        // abierta: se registra siempre una nueva en go2rtc antes de grabar.
+        if (camera.Kind == CameraKind.Tuya)
+        {
+            try
+            {
+                await scope.ServiceProvider.GetRequiredService<TuyaStreamPreparer>().PrepareAsync(camera, ct, forceNew: true);
+            }
+            catch (Exception ex) when (!ct.IsCancellationRequested)
+            {
+                logger.LogWarning("No se pudo preparar el video Tuya de {Name}: {Message}", camera.Name, ex.Message);
+                gate.Finish(camera.Id, clock.GetUtcNow());
+                return;
+            }
+        }
+
         var recording = new Recording
         {
             Id = Guid.CreateVersion7(),
@@ -92,6 +110,13 @@ public class RecordingService(
         _stopSignals[camera.Id] = stop;
         var maxDuration = TimeSpan.FromSeconds(settings.MaxClipSeconds);
         var rtspUrl = go2rtc.Value.RtspUrlFor(camera.Go2rtcStream);
+        // Tuya tarda bastante más en entregar el primer cuadro que una iCSee.
+        var startupGrace = TimeSpan.FromSeconds(camera.Kind == CameraKind.Tuya
+            ? tuyaOptions.Value.StartupGraceSeconds
+            : captureOptions.Value.StartupGraceSeconds);
+        // FFmpeg da el stream por cortado tras este tiempo sin datos; Tuya no manda nada hasta despertar.
+        var readTimeout = camera.Kind == CameraKind.Tuya ? startupGrace : FfmpegRecorder.DefaultReadTimeout;
+        var rotation = camera.Rotation;
 
         _running[recording.Id] = Task.Run(async () =>
         {
@@ -99,7 +124,7 @@ public class RecordingService(
             {
                 // Sin el token del host: al apagar se cancela "stop" (ver ExecuteAsync) y FFmpeg
                 // cierra el MP4 limpiamente, así el clip no se pierde y queda en la cola de subida.
-                await RecordAsync(recording.Id, camera.Id, rtspUrl, maxDuration, stop.Token);
+                await RecordAsync(recording.Id, camera.Id, rtspUrl, maxDuration, rotation, startupGrace, readTimeout, stop.Token);
             }
             finally
             {
@@ -118,7 +143,9 @@ public class RecordingService(
         return (Path.Combine(clipsDir, $"{recordingId:N}.mp4"), Path.Combine(clipsDir, $"{recordingId:N}.jpg"));
     }
 
-    private async Task RecordAsync(Guid recordingId, int cameraId, string rtspUrl, TimeSpan maxDuration, CancellationToken stop)
+    private async Task RecordAsync(Guid recordingId, int cameraId, string rtspUrl, TimeSpan maxDuration, int rotation, TimeSpan startupGrace,
+        TimeSpan readTimeout,
+        CancellationToken stop)
     {
         var (clipPath, thumbPath) = LocalPaths(recordingId);
 
@@ -127,7 +154,7 @@ public class RecordingService(
         RecordResult result;
         try
         {
-            result = await recorder.RecordAsync(rtspUrl, clipPath, maxDuration, stop, CancellationToken.None);
+            result = await recorder.RecordAsync(rtspUrl, clipPath, maxDuration, rotation, startupGrace, readTimeout, stop, CancellationToken.None);
         }
         catch (Exception ex)
         {

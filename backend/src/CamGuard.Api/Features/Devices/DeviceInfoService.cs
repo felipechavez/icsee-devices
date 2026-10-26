@@ -100,7 +100,8 @@ public class DeviceInfoService(
             using var scope = scopeFactory.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var camera = await db.Cameras.FindAsync([cameraId], ct);
-            if (camera is null || string.IsNullOrEmpty(camera.PasswordProtected)) return;
+            // Las Tuya no hablan DVRIP: su batería llega por Features/Tuya.
+            if (camera is null || camera.Kind != CameraKind.Icsee || string.IsNullOrEmpty(camera.PasswordProtected)) return;
 
             await using var client = await connector.OpenAsync(camera, ct);
             var snapshot = await ReadSnapshotAsync(client, ct);
