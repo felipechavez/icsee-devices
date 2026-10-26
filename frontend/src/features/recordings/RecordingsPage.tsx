@@ -8,7 +8,9 @@ import { DayTimeline } from './DayTimeline'
 import { RecordingList } from './RecordingList'
 import { useRecordingList, useRecordingSummary, useTimeline } from './useRecordings'
 
-type Filter = 'all' | 'failed'
+type Filter = 'all' | 'failed' | 'discarded'
+
+const statusByFilter = { all: null, failed: 'Failed', discarded: 'Discarded' } as const
 
 export function RecordingsPage() {
   const [params, setParams] = useSearchParams()
@@ -17,18 +19,22 @@ export function RecordingsPage() {
   const clipId = params.get('clip') // enlace directo desde la notificación ntfy
   const cameraParam = params.get('camera')
   const cameraId = cameraParam ? Number(cameraParam) : null
-  const filter: Filter = params.get('status') === 'failed' ? 'failed' : 'all'
+  const statusParam = params.get('status')
+  const filter: Filter = statusParam === 'failed' || statusParam === 'discarded' ? statusParam : 'all'
 
   const cameras = useCameras()
   const settings = useSettings()
   const summary = useRecordingSummary()
   const timeline = useTimeline(day, cameraId)
-  const list = useRecordingList(day, cameraId, filter === 'failed' ? 'Failed' : null)
+  const list = useRecordingList(day, cameraId, statusByFilter[filter])
 
   const recordings = list.data?.pages.flatMap((p) => p.items) ?? []
   const openClip = recordings.find((r) => r.id === clipId)
-  const marks = timeline.data ?? []
+  // Los descartados por la IA no tienen video: solo se cuentan, no se marcan en la línea de tiempo.
+  const allMarks = timeline.data ?? []
+  const marks = allMarks.filter((m) => m.status !== 'Discarded')
   const failedCount = marks.filter((m) => m.status === 'Failed').length
+  const discardedCount = allMarks.length - marks.length
   const retentionDays = settings.data?.retentionDays ?? 30
   const isToday = day >= today
   const isOldest = daysBetween(day, today) >= retentionDays - 1
@@ -59,10 +65,11 @@ export function RecordingsPage() {
           <Segmented<Filter>
             label="Filtro"
             value={filter}
-            onChange={(value) => update({ status: value === 'failed' ? 'failed' : null })}
+            onChange={(value) => update({ status: value === 'all' ? null : value })}
             options={[
               { value: 'all', label: `Todos · ${marks.length}` },
               { value: 'failed', label: `Fallidos · ${failedCount}` },
+              { value: 'discarded', label: `Descartados · ${discardedCount}` },
             ]}
           />
           <div className="daynav">

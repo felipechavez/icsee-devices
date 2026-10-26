@@ -1,4 +1,7 @@
-export type RecordingStatus = 'Recording' | 'Uploading' | 'Uploaded' | 'Failed'
+export type RecordingStatus = 'Recording' | 'Analyzing' | 'Uploading' | 'Uploaded' | 'Failed' | 'Discarded'
+
+/** Off: sin IA. Tag: etiqueta y sube todo. Filter: descarta los clips sin personas ni animales. */
+export type DetectionMode = 'Off' | 'Tag' | 'Filter'
 
 export type MotionSensitivity = 'Low' | 'Medium' | 'High'
 
@@ -40,12 +43,26 @@ export interface Camera {
   rotation: Rotation
   /** Device IDs de sensores Tuya, separados por coma, cuyo movimiento despierta esta cámara. */
   tuyaTriggerDeviceIds: string | null
+  detectionMode: DetectionMode
+  detectPeople: boolean
+  detectAnimals: boolean
 }
 
 /** Alta y edición. Al editar, una contraseña vacía conserva la actual. */
 export type CameraInput = Pick<
   Camera,
-  'name' | 'kind' | 'ip' | 'dvripPort' | 'go2rtcStream' | 'enabled' | 'username' | 'motionSensitivity' | 'rotation'
+  | 'name'
+  | 'kind'
+  | 'ip'
+  | 'dvripPort'
+  | 'go2rtcStream'
+  | 'enabled'
+  | 'username'
+  | 'motionSensitivity'
+  | 'rotation'
+  | 'detectionMode'
+  | 'detectPeople'
+  | 'detectAnimals'
 > & {
   model: string
   password: string
@@ -79,6 +96,9 @@ export interface Recording {
   sizeBytes: number | null
   status: RecordingStatus
   thumbnailUrl: string | null
+  /** Lo que vio la IA: 'persona', 'perro'… o 'nada'. Null = sin analizar. */
+  detection: string | null
+  detectionScore: number | null
 }
 
 export interface RecordingPage {
@@ -110,6 +130,8 @@ export interface Settings {
   maxClipSeconds: number
   cooldownSeconds: number
   retentionDays: number
+  /** Confianza mínima de la IA (0,2–0,95). */
+  detectionMinConfidence: number
 }
 
 // Mensajes del hub /hubs/events

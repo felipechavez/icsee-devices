@@ -102,7 +102,7 @@ function StatePanel({ camera }: { camera: Camera }) {
 
 function ActivityPanel({ camera }: { camera: Camera }) {
   const timeline = useTimeline(todayKey(), camera.id)
-  const items = timeline.data ?? []
+  const items = (timeline.data ?? []).filter((i) => i.status !== 'Discarded')
   const counts = hourBuckets(items)
   const max = Math.max(...counts, 1)
 

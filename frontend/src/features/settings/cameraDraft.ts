@@ -20,6 +20,9 @@ export function toDraft(camera: Camera): CameraDraft {
     tuyaDeviceId: camera.tuyaDeviceId ?? '',
     tuyaTriggerDeviceIds: camera.tuyaTriggerDeviceIds ?? '',
     rotation: camera.rotation,
+    detectionMode: camera.detectionMode,
+    detectPeople: camera.detectPeople,
+    detectAnimals: camera.detectAnimals,
     streamEdited: true,
   }
 }
@@ -38,6 +41,9 @@ export const emptyDraft: CameraDraft = {
   tuyaDeviceId: '',
   tuyaTriggerDeviceIds: '',
   rotation: 0,
+  detectionMode: 'Tag',
+  detectPeople: true,
+  detectAnimals: true,
   streamEdited: false,
 }
 

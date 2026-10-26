@@ -1,4 +1,4 @@
-import type { Camera, CameraKind, MotionSensitivity, Rotation, TestConnectionResult } from '../../api/types'
+import type { Camera, CameraKind, DetectionMode, MotionSensitivity, Rotation, TestConnectionResult } from '../../api/types'
 import { BatteryBadge } from '../../components/BatteryBadge'
 import { Segmented } from '../../components/Segmented'
 import { Switch } from '../../components/Switch'
@@ -21,6 +21,12 @@ const rotations: { value: `${Rotation}`; label: string }[] = [
   { value: '90', label: '90°' },
   { value: '180', label: '180°' },
   { value: '270', label: '270°' },
+]
+
+const detectionModes: { value: DetectionMode; label: string }[] = [
+  { value: 'Off', label: 'Desactivada' },
+  { value: 'Tag', label: 'Solo etiquetar' },
+  { value: 'Filter', label: 'Filtrar' },
 ]
 
 interface Props {
@@ -194,6 +200,47 @@ export function CameraPanel({ camera, draft, open, onToggle, onChange, error, on
                 options={rotations}
                 onChange={(value) => onChange({ rotation: Number(value) as Rotation })}
               />
+            </div>
+
+            <div className="cam-acc-wide">
+              <div>
+                <span className="row-label">Detección IA</span>
+                <span className="row-hint">
+                  Filtrar descarta los clips sin personas ni animales; timbre y alarmas siempre se guardan.
+                </span>
+                {draft.detectionMode === 'Filter' && !draft.detectPeople && !draft.detectAnimals && (
+                  <span className="error">Para filtrar, activa personas, animales o ambos.</span>
+                )}
+              </div>
+              <div className="detect-opts">
+                <Segmented
+                  className="seg-input"
+                  label="Detección IA"
+                  value={draft.detectionMode}
+                  options={detectionModes}
+                  onChange={(detectionMode) => onChange({ detectionMode })}
+                />
+                <div className="checks">
+                  <label className="check">
+                    <input
+                      type="checkbox"
+                      checked={draft.detectPeople}
+                      disabled={draft.detectionMode === 'Off'}
+                      onChange={(e) => onChange({ detectPeople: e.target.checked })}
+                    />
+                    Personas
+                  </label>
+                  <label className="check">
+                    <input
+                      type="checkbox"
+                      checked={draft.detectAnimals}
+                      disabled={draft.detectionMode === 'Off'}
+                      onChange={(e) => onChange({ detectAnimals: e.target.checked })}
+                    />
+                    Animales
+                  </label>
+                </div>
+              </div>
             </div>
 
             <div className="cam-acc-wide">

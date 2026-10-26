@@ -11,7 +11,7 @@ import type { CameraDraft } from './cameraDraft'
 import { useSettings } from './useSettings'
 
 /** Límites de UpdateSettings en la API. */
-const fields: { key: keyof Settings; label: string; hint: string; unit: string; step: number; min: number; max: number }[] = [
+const fields: { key: Exclude<keyof Settings, 'detectionMinConfidence'>; label: string; hint: string; unit: string; step: number; min: number; max: number }[] = [
   {
     key: 'maxClipSeconds',
     label: 'Duración máxima por clip',
@@ -63,7 +63,11 @@ export function SettingsPage() {
   const list = cameras.data ?? []
   const byKey = new Map(list.map((c) => [String(c.id), c]))
   const form = settingsDraft ?? settings.data
-  const settingsDirty = !!settingsDraft && !!settings.data && fields.some((f) => settingsDraft[f.key] !== settings.data![f.key])
+  const settingsDirty =
+    !!settingsDraft &&
+    !!settings.data &&
+    (fields.some((f) => settingsDraft[f.key] !== settings.data![f.key]) ||
+      settingsDraft.detectionMinConfidence !== settings.data.detectionMinConfidence)
   const changedKeys = Object.keys(drafts).filter((k) => isChanged(drafts[k], byKey.get(k)))
   const dirty = settingsDirty || changedKeys.length > 0
 
@@ -202,7 +206,7 @@ export function SettingsPage() {
         <div className="settings-intro">
           <div>
             <h2 className="section-title">Grabación</h2>
-            <p>Cuánto graba cada vez que detecta movimiento y cuánto tiempo se guardan los clips.</p>
+            <p>Cuánto graba cada vez que detecta movimiento, cuánto tiempo se guardan los clips y qué tan segura debe estar la IA.</p>
           </div>
         </div>
         <div className="settings-body">
@@ -226,6 +230,26 @@ export function SettingsPage() {
                   />
                 </div>
               ))}
+              <div className="row">
+                <div className="row-text">
+                  <div className="row-label">Confianza mínima de la IA</div>
+                  <div className="row-hint">
+                    Más alta evita falsos positivos (sombras, reflejos), pero puede perder personas lejanas o de noche.
+                  </div>
+                </div>
+                <div className="range">
+                  <input
+                    type="range"
+                    min={20}
+                    max={95}
+                    step={5}
+                    aria-label="Confianza mínima de la IA"
+                    value={Math.round(form.detectionMinConfidence * 100)}
+                    onChange={(e) => setSettingsDraft({ ...form, detectionMinConfidence: e.target.valueAsNumber / 100 })}
+                  />
+                  <span>{Math.round(form.detectionMinConfidence * 100)} %</span>
+                </div>
+              </div>
             </div>
           ) : (
             !settings.error && <p className="muted">Cargando…</p>

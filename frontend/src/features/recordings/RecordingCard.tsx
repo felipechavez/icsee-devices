@@ -11,11 +11,19 @@ export function ClipThumb({ recording }: { recording: Recording }) {
           <span>Cámara sin respuesta</span>
         </div>
       )
+    case 'Discarded':
+      return (
+        <div className="clip-note stripes">
+          <strong>Descartado por la IA</strong>
+          <span>Sin personas ni animales</span>
+        </div>
+      )
     case 'Recording':
+    case 'Analyzing':
     case 'Uploading':
       return (
         <div className="clip-note stripes">
-          <strong>{recording.status === 'Recording' ? 'Grabando…' : 'Subiendo…'}</strong>
+          <strong>{{ Recording: 'Grabando…', Analyzing: 'Analizando…', Uploading: 'Subiendo…' }[recording.status]}</strong>
         </div>
       )
     default:
@@ -26,10 +34,23 @@ export function ClipThumb({ recording }: { recording: Recording }) {
           ) : (
             <div className="clip-note">Sin miniatura</div>
           )}
+          <DetectionTag recording={recording} />
           <span className="clip-dur">{formatDuration(recording.durationSec)}</span>
         </>
       )
   }
+}
+
+/** Lo que vio la IA; "nada" va apagado (útil para calibrar en el modo Solo etiquetar). */
+function DetectionTag({ recording }: { recording: Recording }) {
+  if (!recording.detection) return null
+  const nothing = recording.detection === 'nada'
+  const score = recording.detectionScore != null ? ` ${Math.round(recording.detectionScore * 100)} %` : ''
+  return (
+    <span className="clip-tag" data-none={nothing || undefined} title={`IA: ${recording.detection}${score}`}>
+      {recording.detection}
+    </span>
+  )
 }
 
 interface Props {
@@ -39,7 +60,7 @@ interface Props {
   meta?: string
 }
 
-/** Los clips en curso no se abren; los fallidos sí, para ver la explicación. */
+/** Los clips en curso no se abren; los fallidos sí, para ver la explicación. Los descartados no tienen video. */
 export function RecordingCard({ recording, onOpen, meta }: Props) {
   const openable = recording.status === 'Uploaded' || recording.status === 'Failed'
 
