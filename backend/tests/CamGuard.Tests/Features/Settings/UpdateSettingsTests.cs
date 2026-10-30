@@ -46,6 +46,26 @@ public class UpdateSettingsTests
     }
 
     [Test]
+    [Arguments(4, 48, nameof(SettingsDto.LowBatteryPercent))]
+    [Arguments(51, 48, nameof(SettingsDto.LowBatteryPercent))]
+    [Arguments(20, 5, nameof(SettingsDto.SilentCameraHours))]
+    [Arguments(20, 337, nameof(SettingsDto.SilentCameraHours))]
+    public async Task Validate_HealthThresholdsOutOfRange_ReportsField(int lowBattery, int silentHours, string field)
+    {
+        var errors = UpdateSettings.Validate(new SettingsDto(60, 10, 30, LowBatteryPercent: lowBattery, SilentCameraHours: silentHours));
+
+        await Assert.That(errors.Keys).IsEquivalentTo([field]);
+    }
+
+    [Test]
+    [Arguments(5, 6)]
+    [Arguments(50, 336)]
+    public async Task Validate_HealthThresholdBoundaries_Accepted(int lowBattery, int silentHours)
+    {
+        await Assert.That(UpdateSettings.Validate(new SettingsDto(60, 10, 30, LowBatteryPercent: lowBattery, SilentCameraHours: silentHours))).IsEmpty();
+    }
+
+    [Test]
     [Arguments(5, 0, 1)]
     [Arguments(600, 600, 365)]
     public async Task Validate_BoundaryValues_Accepted(int maxClip, int cooldown, int retention)

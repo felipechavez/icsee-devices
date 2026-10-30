@@ -28,7 +28,12 @@ public interface IEventsClient
     Task CameraInfoUpdated(CameraInfoMessage message);
     Task RecordingStarted(RecordingStartedMessage message);
     Task RecordingCompleted(RecordingCompletedMessage message);
+
+    /// <summary>Cambiaron los problemas del sistema (ver Features/Health); la web vuelve a pedir el estado.</summary>
+    Task HealthUpdated(HealthUpdatedMessage message);
 }
+
+public record HealthUpdatedMessage(int IssueCount);
 
 /// <summary>Solo empuja eventos del servidor; el cliente no invoca métodos.</summary>
 [Authorize]

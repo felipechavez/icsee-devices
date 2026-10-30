@@ -16,6 +16,7 @@ namespace CamGuard.Api.Features.Upload;
 /// </summary>
 public class UploadService(
     UploadQueue queue,
+    UploadHealth health,
     IServiceScopeFactory scopeFactory,
     IVideoStorage storage,
     INotifier notifier,
@@ -70,11 +71,14 @@ public class UploadService(
             if (job.ThumbnailPath is not null && recording.ThumbnailKey is not null)
                 await storage.UploadAsync(recording.ThumbnailKey, job.ThumbnailPath, "image/jpeg", ct);
 
+            health.Succeeded();
+
             recording.Status = RecordingStatus.Uploaded;
             await db.SaveChangesAsync(ct);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
+            health.Failed(ex.Message);
             var attempts = job.Attempts + 1;
             var delay = RetryPolicy.Delay(attempts);
             logger.LogWarning(ex, "Falló la subida de {Id} (intento {Attempt}); se reintenta en {Delay}", job.RecordingId, attempts, delay);
@@ -146,6 +150,7 @@ public static class UploadFeature
     public static IServiceCollection AddUploadFeature(this IServiceCollection services)
     {
         services.AddSingleton<UploadQueue>();
+        services.AddSingleton<UploadHealth>();
         services.AddHostedService<UploadService>();
         return services;
     }

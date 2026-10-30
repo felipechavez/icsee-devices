@@ -8,6 +8,7 @@ import type {
   Camera,
   CameraInfoMessage,
   CameraStatusMessage,
+  HealthUpdatedMessage,
   RecordingCompletedMessage,
   RecordingStartedMessage,
 } from '../api/types'
@@ -18,6 +19,7 @@ export interface HubEvents {
   CameraInfoUpdated: CameraInfoMessage
   RecordingStarted: RecordingStartedMessage
   RecordingCompleted: RecordingCompletedMessage
+  HealthUpdated: HealthUpdatedMessage
 }
 
 type HubStatus = 'connecting' | 'connected' | 'reconnecting' | 'disconnected'
@@ -74,12 +76,16 @@ export function EventsHubProvider({ children }: { children: ReactNode }) {
       void queryClient.invalidateQueries({ queryKey: ['recordings'] })
       void queryClient.invalidateQueries({ queryKey: ['cameras'] })
     })
+    hub.on('HealthUpdated', () => {
+      void queryClient.invalidateQueries({ queryKey: ['status'] })
+    })
     hub.onreconnecting(() => setStatus('reconnecting'))
     hub.onreconnected(() => {
       setStatus('connected')
       // Pudimos perder eventos mientras estábamos desconectados.
       queryClient.invalidateQueries({ queryKey: ['cameras'] })
       queryClient.invalidateQueries({ queryKey: ['recordings'] })
+      queryClient.invalidateQueries({ queryKey: ['status'] })
     })
     hub.onclose(() => setStatus('disconnected'))
 

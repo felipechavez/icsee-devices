@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import { useSystemStatus } from '../features/status/useSystemStatus'
 import { useAuth } from '../hooks/useAuth'
 import { useHubStatus } from '../hooks/useEventsHub'
 import { useNow } from '../hooks/useNow'
@@ -21,6 +22,8 @@ export function Layout() {
   const { username, logout } = useAuth()
   const hubStatus = useHubStatus()
   const [theme, setTheme] = useTheme()
+  const issues = useSystemStatus().data?.issues ?? []
+  const critical = issues.some((i) => i.severity === 'Critical')
 
   return (
     <div className="shell">
@@ -32,6 +35,18 @@ export function Layout() {
         <nav className="nav">
           <NavLink to="/" end>Inicio</NavLink>
           <NavLink to="/recordings">Grabaciones</NavLink>
+          <NavLink to="/status">
+            Estado
+            {issues.length > 0 && (
+              <span
+                className="nav-badge"
+                data-health={critical ? 'error' : 'warn'}
+                aria-label={issues.length === 1 ? '1 problema' : `${issues.length} problemas`}
+              >
+                {issues.length}
+              </span>
+            )}
+          </NavLink>
           <NavLink to="/settings">Configuración</NavLink>
         </nav>
         <div className="topbar-end">

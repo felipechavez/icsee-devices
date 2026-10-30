@@ -8,6 +8,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Recording> Recordings => Set<Recording>();
     public DbSet<CameraEvent> CameraEvents => Set<CameraEvent>();
     public DbSet<AppSettings> Settings => Set<AppSettings>();
+    public DbSet<BatteryReading> BatteryReadings => Set<BatteryReading>();
+    public DbSet<HealthAlert> HealthAlerts => Set<HealthAlert>();
 
     public Task<AppSettings> GetSettingsAsync(CancellationToken ct) =>
         Settings.SingleAsync(s => s.Id == AppSettings.SingletonId, ct);
@@ -53,7 +55,23 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<AppSettings>(e =>
         {
             e.Property(s => s.Id).ValueGeneratedNever();
+            e.Property(s => s.HealthAlertsEnabled).HasDefaultValue(true).HasSentinel(true);
+            e.Property(s => s.LowBatteryPercent).HasDefaultValue(20);
+            e.Property(s => s.SilentCameraHours).HasDefaultValue(48);
             e.HasData(new AppSettings());
+        });
+
+        modelBuilder.Entity<BatteryReading>(e =>
+        {
+            e.HasIndex(b => new { b.CameraId, b.At });
+            e.HasOne<Camera>().WithMany().HasForeignKey(b => b.CameraId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<HealthAlert>(e =>
+        {
+            e.HasKey(a => a.Key);
+            e.Property(a => a.Key).HasMaxLength(100);
+            e.Property(a => a.Title).HasMaxLength(200);
         });
     }
 }

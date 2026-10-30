@@ -7,6 +7,7 @@ import type {
   RecordingStatus,
   RecordingSummary,
   Settings,
+  SystemStatus,
   TestConnectionRequest,
   TestConnectionResult,
   TimelineItem,
@@ -103,6 +104,9 @@ export const api = {
 
   updateSettings: (data: Settings) =>
     request<Settings>('/api/settings', { method: 'PUT', body: json(data) }),
+
+  /** Null mientras la API no termina su primera revisión (204). */
+  status: async () => (await request<SystemStatus | undefined>('/api/status')) ?? null,
 
   webrtcAnswer: (cameraId: number, offerSdp: string) =>
     request<string>(`/api/live/${cameraId}/webrtc`, {

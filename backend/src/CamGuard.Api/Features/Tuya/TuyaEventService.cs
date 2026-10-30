@@ -26,6 +26,7 @@ public class TuyaEventService(
     IServiceScopeFactory scopeFactory,
     TuyaApiClient api,
     CameraStatePublisher publisher,
+    TuyaConnectionState connection,
     INotifier notifier,
     IHubContext<EventsHub, IEventsClient> hub,
     IOptions<TuyaOptions> options,
@@ -69,7 +70,12 @@ public class TuyaEventService(
         {
             try
             {
-                await ListenAsync(() => attempt = 0, ct);
+                await ListenAsync(() =>
+                {
+                    attempt = 0;
+                    connection.Connected();
+                }, ct);
+                connection.Disconnected("Tuya cerró la conexión");
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -77,6 +83,7 @@ public class TuyaEventService(
             }
             catch (Exception ex)
             {
+                connection.Disconnected(ex.Message);
                 logger.LogWarning("Conexión con el Message Service de Tuya fallida: {Message}", ex.Message);
             }
 
@@ -429,6 +436,7 @@ public static class TuyaFeature
         services.Configure<TuyaOptions>(configuration.GetSection(TuyaOptions.Section));
         services.AddHttpClient(TuyaApiClient.HttpClientName, c => c.Timeout = TimeSpan.FromSeconds(20));
         services.AddSingleton<TuyaApiClient>();
+        services.AddSingleton<TuyaConnectionState>();
         services.AddTransient<TuyaStreamPreparer>();
         services.AddHostedService<TuyaEventService>();
         return services;

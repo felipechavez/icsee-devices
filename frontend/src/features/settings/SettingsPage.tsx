@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { api } from '../../api/client'
 import type { Camera, Settings, TestConnectionResult } from '../../api/types'
 import { Stepper } from '../../components/Stepper'
+import { Switch } from '../../components/Switch'
 import { useToast } from '../../components/toastContext'
 import { useCameras } from '../cameras/useCameras'
 import { CameraPanel } from './CameraPanel'
@@ -10,8 +12,20 @@ import { emptyDraft, isChanged, streamFromName, toDraft } from './cameraDraft'
 import type { CameraDraft } from './cameraDraft'
 import { useSettings } from './useSettings'
 
+type NumericKey = 'maxClipSeconds' | 'cooldownSeconds' | 'retentionDays' | 'lowBatteryPercent' | 'silentCameraHours'
+
+interface Field {
+  key: NumericKey
+  label: string
+  hint: string
+  unit: string
+  step: number
+  min: number
+  max: number
+}
+
 /** Límites de UpdateSettings en la API. */
-const fields: { key: Exclude<keyof Settings, 'detectionMinConfidence'>; label: string; hint: string; unit: string; step: number; min: number; max: number }[] = [
+const fields: Field[] = [
   {
     key: 'maxClipSeconds',
     label: 'Duración máxima por clip',
@@ -41,10 +55,52 @@ const fields: { key: Exclude<keyof Settings, 'detectionMinConfidence'>; label: s
   },
 ]
 
+const alertFields: Field[] = [
+  {
+    key: 'lowBatteryPercent',
+    label: 'Batería baja',
+    hint: 'Avisa cuando una cámara baja de este nivel, o cuando el pronóstico da 3 días o menos.',
+    unit: '%',
+    step: 5,
+    min: 5,
+    max: 50,
+  },
+  {
+    key: 'silentCameraHours',
+    label: 'Cámara sin despertar',
+    hint: 'Avisa si una cámara habilitada no despierta en este tiempo. Súbelo si alguna ve poco movimiento.',
+    unit: 'h',
+    step: 6,
+    min: 6,
+    max: 336,
+  },
+]
+
 const NEW = 'new'
 type Key = string // id de cámara, o NEW para el alta
 
-const settingsValid = (s: Settings) => fields.every((f) => Number.isInteger(s[f.key]) && s[f.key] >= f.min && s[f.key] <= f.max)
+const settingsValid = (s: Settings) =>
+  [...fields, ...alertFields].every((f) => Number.isInteger(s[f.key]) && s[f.key] >= f.min && s[f.key] <= f.max)
+
+function FieldRow({ field, form, onChange }: { field: Field; form: Settings; onChange: (s: Settings) => void }) {
+  return (
+    <div className="row">
+      <div className="row-text">
+        <div className="row-label">{field.label}</div>
+        <div className="row-hint">{field.hint}</div>
+      </div>
+      <Stepper
+        label={field.label}
+        value={form[field.key]}
+        min={field.min}
+        max={field.max}
+        step={field.step}
+        unit={field.unit}
+        onChange={(value) => onChange({ ...form, [field.key]: value })}
+      />
+    </div>
+  )
+}
 
 export function SettingsPage() {
   const queryClient = useQueryClient()
@@ -66,8 +122,7 @@ export function SettingsPage() {
   const settingsDirty =
     !!settingsDraft &&
     !!settings.data &&
-    (fields.some((f) => settingsDraft[f.key] !== settings.data![f.key]) ||
-      settingsDraft.detectionMinConfidence !== settings.data.detectionMinConfidence)
+    (Object.keys(settingsDraft) as (keyof Settings)[]).some((k) => settingsDraft[k] !== settings.data![k])
   const changedKeys = Object.keys(drafts).filter((k) => isChanged(drafts[k], byKey.get(k)))
   const dirty = settingsDirty || changedKeys.length > 0
 
@@ -214,21 +269,7 @@ export function SettingsPage() {
           {form ? (
             <div className="rows">
               {fields.map((f) => (
-                <div key={f.key} className="row">
-                  <div className="row-text">
-                    <div className="row-label">{f.label}</div>
-                    <div className="row-hint">{f.hint}</div>
-                  </div>
-                  <Stepper
-                    label={f.label}
-                    value={form[f.key]}
-                    min={f.min}
-                    max={f.max}
-                    step={f.step}
-                    unit={f.unit}
-                    onChange={(value) => setSettingsDraft({ ...form, [f.key]: value })}
-                  />
-                </div>
+                <FieldRow key={f.key} field={f} form={form} onChange={setSettingsDraft} />
               ))}
               <div className="row">
                 <div className="row-text">
@@ -250,6 +291,42 @@ export function SettingsPage() {
                   <span>{Math.round(form.detectionMinConfidence * 100)} %</span>
                 </div>
               </div>
+            </div>
+          ) : (
+            !settings.error && <p className="muted">Cargando…</p>
+          )}
+        </div>
+      </section>
+
+      <div className="divider" />
+
+      <section className="settings-section">
+        <div className="settings-intro">
+          <div>
+            <h2 className="section-title">Alertas del sistema</h2>
+            <p>
+              Avisos por ntfy cuando algo deja de funcionar: batería, cámaras que no despiertan, go2rtc, Tuya, R2 o el
+              disco. El detalle está en <Link to="/status">Estado</Link>.
+            </p>
+          </div>
+        </div>
+        <div className="settings-body">
+          {form ? (
+            <div className="rows">
+              <div className="row">
+                <div className="row-text">
+                  <div className="row-label">Avisar problemas</div>
+                  <div className="row-hint">Apagado, los problemas solo se ven en el panel Estado.</div>
+                </div>
+                <Switch
+                  label="Avisar problemas"
+                  checked={form.healthAlertsEnabled}
+                  onChange={(checked) => setSettingsDraft({ ...form, healthAlertsEnabled: checked })}
+                />
+              </div>
+              {alertFields.map((f) => (
+                <FieldRow key={f.key} field={f} form={form} onChange={setSettingsDraft} />
+              ))}
             </div>
           ) : (
             !settings.error && <p className="muted">Cargando…</p>

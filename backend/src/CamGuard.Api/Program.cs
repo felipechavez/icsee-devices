@@ -11,6 +11,7 @@ using CamGuard.Api.Common.Storage;
 using CamGuard.Api.Features.Capture;
 using CamGuard.Api.Features.Detection;
 using CamGuard.Api.Features.Devices;
+using CamGuard.Api.Features.Health;
 using CamGuard.Api.Features.Live;
 using CamGuard.Api.Features.Monitoring;
 using CamGuard.Api.Features.Retention;
@@ -55,6 +56,7 @@ builder.Services.AddLiveFeature(config);
 builder.Services.AddStreamsFeature(config);
 builder.Services.AddDevicesFeature(config);
 builder.Services.AddTuyaFeature(config);
+builder.Services.AddHealthFeature(config);
 builder.Services.AddHostedService<RetentionService>();
 
 var app = builder.Build();

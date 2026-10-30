@@ -33,11 +33,26 @@ namespace CamGuard.Api.Common.Data.Migrations
                     b.Property<double>("DetectionMinConfidence")
                         .HasColumnType("double precision");
 
+                    b.Property<bool>("HealthAlertsEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<int>("LowBatteryPercent")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(20);
+
                     b.Property<int>("MaxClipSeconds")
                         .HasColumnType("integer");
 
                     b.Property<int>("RetentionDays")
                         .HasColumnType("integer");
+
+                    b.Property<int>("SilentCameraHours")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(48);
 
                     b.HasKey("Id");
 
@@ -49,9 +64,36 @@ namespace CamGuard.Api.Common.Data.Migrations
                             Id = 1,
                             CooldownSeconds = 10,
                             DetectionMinConfidence = 0.5,
+                            HealthAlertsEnabled = true,
+                            LowBatteryPercent = 20,
                             MaxClipSeconds = 60,
-                            RetentionDays = 30
+                            RetentionDays = 30,
+                            SilentCameraHours = 48
                         });
+                });
+
+            modelBuilder.Entity("CamGuard.Api.Common.Data.BatteryReading", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CameraId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Percent")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CameraId", "At");
+
+                    b.ToTable("BatteryReadings");
                 });
 
             modelBuilder.Entity("CamGuard.Api.Common.Data.Camera", b =>
@@ -188,6 +230,28 @@ namespace CamGuard.Api.Common.Data.Migrations
                     b.ToTable("CameraEvents");
                 });
 
+            modelBuilder.Entity("CamGuard.Api.Common.Data.HealthAlert", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTimeOffset?>("LastNotifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("OpenedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Key");
+
+                    b.ToTable("HealthAlerts");
+                });
+
             modelBuilder.Entity("CamGuard.Api.Common.Data.Recording", b =>
                 {
                     b.Property<Guid>("Id")
@@ -236,6 +300,15 @@ namespace CamGuard.Api.Common.Data.Migrations
                     b.HasIndex("CameraId", "StartedAt");
 
                     b.ToTable("Recordings");
+                });
+
+            modelBuilder.Entity("CamGuard.Api.Common.Data.BatteryReading", b =>
+                {
+                    b.HasOne("CamGuard.Api.Common.Data.Camera", null)
+                        .WithMany()
+                        .HasForeignKey("CameraId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("CamGuard.Api.Common.Data.CameraEvent", b =>

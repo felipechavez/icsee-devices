@@ -3,7 +3,14 @@ using CamGuard.Api.Common.Endpoints;
 
 namespace CamGuard.Api.Features.Settings;
 
-public record SettingsDto(int MaxClipSeconds, int CooldownSeconds, int RetentionDays, double DetectionMinConfidence = 0.5);
+public record SettingsDto(
+    int MaxClipSeconds,
+    int CooldownSeconds,
+    int RetentionDays,
+    double DetectionMinConfidence = 0.5,
+    bool HealthAlertsEnabled = true,
+    int LowBatteryPercent = 20,
+    int SilentCameraHours = 48);
 
 public static class GetSettings
 {
@@ -14,7 +21,8 @@ public static class GetSettings
             app.MapGet("/settings", async (AppDbContext db, CancellationToken ct) =>
                 {
                     var s = await db.GetSettingsAsync(ct);
-                    return new SettingsDto(s.MaxClipSeconds, s.CooldownSeconds, s.RetentionDays, s.DetectionMinConfidence);
+                    return new SettingsDto(s.MaxClipSeconds, s.CooldownSeconds, s.RetentionDays, s.DetectionMinConfidence,
+                        s.HealthAlertsEnabled, s.LowBatteryPercent, s.SilentCameraHours);
                 })
                 .WithTags("Settings");
         }
@@ -29,6 +37,10 @@ public static class UpdateSettings
     public const int MaxRetentionDays = 365;
     public const double MinDetectionConfidence = 0.2;
     public const double MaxDetectionConfidence = 0.95;
+    public const int MinLowBatteryPercent = 5;
+    public const int MaxLowBatteryPercent = 50;
+    public const int MinSilentCameraHours = 6;
+    public const int MaxSilentCameraHours = 336;
 
     public static Dictionary<string, string[]> Validate(SettingsDto r)
     {
@@ -41,6 +53,10 @@ public static class UpdateSettings
             errors[nameof(r.RetentionDays)] = [$"Debe estar entre 1 y {MaxRetentionDays} días."];
         if (r.DetectionMinConfidence is < MinDetectionConfidence or > MaxDetectionConfidence || double.IsNaN(r.DetectionMinConfidence))
             errors[nameof(r.DetectionMinConfidence)] = ["La confianza mínima debe estar entre 20 % y 95 %."];
+        if (r.LowBatteryPercent is < MinLowBatteryPercent or > MaxLowBatteryPercent)
+            errors[nameof(r.LowBatteryPercent)] = [$"Debe estar entre {MinLowBatteryPercent} % y {MaxLowBatteryPercent} %."];
+        if (r.SilentCameraHours is < MinSilentCameraHours or > MaxSilentCameraHours)
+            errors[nameof(r.SilentCameraHours)] = [$"Debe estar entre {MinSilentCameraHours} y {MaxSilentCameraHours} horas."];
         return errors;
     }
 
@@ -59,6 +75,9 @@ public static class UpdateSettings
                     s.CooldownSeconds = request.CooldownSeconds;
                     s.RetentionDays = request.RetentionDays;
                     s.DetectionMinConfidence = request.DetectionMinConfidence;
+                    s.HealthAlertsEnabled = request.HealthAlertsEnabled;
+                    s.LowBatteryPercent = request.LowBatteryPercent;
+                    s.SilentCameraHours = request.SilentCameraHours;
                     await db.SaveChangesAsync(ct);
                     return Results.Ok(request);
                 })

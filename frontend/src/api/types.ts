@@ -132,6 +132,67 @@ export interface Settings {
   retentionDays: number
   /** Confianza mínima de la IA (0,2–0,95). */
   detectionMinConfidence: number
+  /** Avisar por ntfy los problemas del sistema; el panel Estado los muestra igual. */
+  healthAlertsEnabled: boolean
+  /** 5–50 %. */
+  lowBatteryPercent: number
+  /** 6–336 h sin despertar para dar una cámara por caída. */
+  silentCameraHours: number
+}
+
+// Estado del sistema (GET /api/status)
+export type HealthSeverity = 'Warning' | 'Critical'
+
+export interface HealthIssue {
+  /** "battery:{id}", "silent:{id}", "service:{nombre}", "queue" o "disk". */
+  key: string
+  severity: HealthSeverity
+  title: string
+  detail: string | null
+  cameraId: number | null
+  since: string
+}
+
+export interface BatteryPoint {
+  at: string
+  percent: number
+}
+
+export interface CameraHealth {
+  id: number
+  name: string
+  kind: CameraKind
+  enabled: boolean
+  batteryPercent: number | null
+  deviceInfoAt: string | null
+  /** Null hasta tener un día de lecturas bajando. */
+  batteryDaysLeft: number | null
+  /** Últimos 14 días, en orden cronológico. */
+  batteryHistory: BatteryPoint[]
+  lastAwakeAt: string | null
+  /** Promedio de los últimos 7 días. */
+  activationsPerDay: number
+}
+
+export type ServiceName = 'go2rtc' | 'tuya' | 'r2'
+
+export interface ServiceHealth {
+  name: ServiceName
+  ok: boolean
+  /** Desde cuándo está en el estado actual; en R2 sano, la última subida. */
+  since: string | null
+  detail: string | null
+}
+
+export interface SystemStatus {
+  checkedAt: string
+  issues: HealthIssue[]
+  cameras: CameraHealth[]
+  services: ServiceHealth[]
+  uploads: { pending: number; analyzing: number; oldestPendingAt: string | null }
+  /** Null si no se pudo leer. */
+  disk: { freeBytes: number; totalBytes: number } | null
+  storage: { usedBytes: number; clips: number; estimatedMonthlyUsd: number }
 }
 
 // Mensajes del hub /hubs/events
@@ -161,4 +222,8 @@ export interface RecordingCompletedMessage {
   recordingId: string
   cameraId: number
   startedAt: string
+}
+
+export interface HealthUpdatedMessage {
+  issueCount: number
 }

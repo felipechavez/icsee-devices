@@ -156,4 +156,37 @@ public class AppSettings
 
     /// <summary>Confianza mínima (0–1) para dar por vista una persona o un animal.</summary>
     public double DetectionMinConfidence { get; set; } = 0.5;
+
+    /// <summary>Avisar por ntfy los problemas del sistema (ver Features/Health). El panel los muestra igual.</summary>
+    public bool HealthAlertsEnabled { get; set; } = true;
+
+    /// <summary>Por debajo de este porcentaje de batería se avisa.</summary>
+    public int LowBatteryPercent { get; set; } = 20;
+
+    /// <summary>Horas sin despertar tras las que una cámara habilitada se da por caída.</summary>
+    public int SilentCameraHours { get; set; } = 48;
+}
+
+/// <summary>Lectura de batería de una cámara, para el historial y el pronóstico (ver Features/Health).</summary>
+public class BatteryReading
+{
+    public long Id { get; set; }
+    public int CameraId { get; set; }
+    public int Percent { get; set; }
+    public DateTimeOffset At { get; set; }
+}
+
+/// <summary>Problema del sistema abierto (ver Features/Health); la fila se borra al resolverse.</summary>
+public class HealthAlert
+{
+    /// <summary>Clave estable del problema, p. ej. "battery:3" o "service:go2rtc".</summary>
+    public required string Key { get; set; }
+
+    /// <summary>Título del aviso, para el "Resuelto: …".</summary>
+    public required string Title { get; set; }
+
+    public DateTimeOffset OpenedAt { get; set; }
+
+    /// <summary>Último aviso enviado por ntfy; null = aún no se pudo avisar.</summary>
+    public DateTimeOffset? LastNotifiedAt { get; set; }
 }

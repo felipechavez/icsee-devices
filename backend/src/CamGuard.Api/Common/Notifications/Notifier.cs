@@ -14,7 +14,8 @@ public class NtfyOptions
     public string? Token { get; set; }
 }
 
-public record Notification(string Title, string Message, string? ClickUrl = null, string? ImageUrl = null, string[]? Tags = null);
+/// <param name="Priority">Prioridad de ntfy (1 mínima … 5 urgente); null = la del servidor (3).</param>
+public record Notification(string Title, string Message, string? ClickUrl = null, string? ImageUrl = null, string[]? Tags = null, int? Priority = null);
 
 public interface INotifier
 {
@@ -49,7 +50,8 @@ public class NtfyNotifier(HttpClient http, IOptions<NtfyOptions> options, ILogge
                 message = notification.Message,
                 click = notification.ClickUrl,
                 attach = notification.ImageUrl,
-                tags = notification.Tags
+                tags = notification.Tags,
+                priority = notification.Priority
             })
         };
 

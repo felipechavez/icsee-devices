@@ -6,6 +6,7 @@ import { ToastProvider } from './components/Toast'
 import { HomePage } from './features/live/HomePage'
 import { RecordingsPage } from './features/recordings/RecordingsPage'
 import { SettingsPage } from './features/settings/SettingsPage'
+import { StatusPage } from './features/status/StatusPage'
 import { EventsHubProvider } from './hooks/useEventsHub'
 
 const queryClient = new QueryClient({
@@ -28,6 +29,7 @@ export default function App() {
             <Route element={<Layout />}>
               <Route index element={<HomePage />} />
               <Route path="recordings" element={<RecordingsPage />} />
+              <Route path="status" element={<StatusPage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
