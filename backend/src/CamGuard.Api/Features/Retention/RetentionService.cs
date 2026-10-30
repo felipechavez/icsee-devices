@@ -17,6 +17,13 @@ public static class RetentionPolicy
     public static Expression<Func<Recording, bool>> ExpiredBefore(DateTimeOffset cutoff) =>
         r => r.StartedAt < cutoff
             && (r.Status == RecordingStatus.Uploaded || r.Status == RecordingStatus.Failed || r.Status == RecordingStatus.Discarded);
+
+    /// <summary>
+    /// Objeto de R2 vencido, tenga o no fila en la base. Se mide por la hora de subida (siempre posterior a
+    /// <c>StartedAt</c>), así un clip subido tarde nunca se borra antes que su fila. Solo claves de CamGuard.
+    /// </summary>
+    public static bool IsOrphanExpired(string key, DateTimeOffset lastModified, DateTimeOffset cutoff) =>
+        StorageKeys.IsManaged(key) && lastModified < cutoff;
 }
 
 /// <summary>Una vez al día borra de R2 y de la base los clips más antiguos que la retención.</summary>
@@ -72,7 +79,29 @@ public class RetentionService(IServiceScopeFactory scopeFactory, IVideoStorage s
             deleted += batch.Count;
         }
 
+        var orphans = await SweepStorageAsync(cutoff, ct);
         var events = await db.CameraEvents.Where(e => e.OccurredAt < cutoff).ExecuteDeleteAsync(ct);
-        logger.LogInformation("Retención ({Days} días): {Clips} clips y {Events} eventos borrados", settings.RetentionDays, deleted, events);
+        logger.LogInformation("Retención ({Days} días): {Clips} clips, {Orphans} objetos huérfanos y {Events} eventos borrados",
+            settings.RetentionDays, deleted, orphans, events);
+    }
+
+    /// <summary>Borra de R2 lo vencido que no tenía fila en la base (migraciones, base recreada…).</summary>
+    private async Task<int> SweepStorageAsync(DateTimeOffset cutoff, CancellationToken ct)
+    {
+        var deleted = 0;
+        await foreach (var o in storage.ListAsync(ct))
+        {
+            if (!RetentionPolicy.IsOrphanExpired(o.Key, o.LastModified, cutoff)) continue;
+            try
+            {
+                await storage.DeleteAsync(o.Key, ct);
+                deleted++;
+            }
+            catch (Exception ex) when (!ct.IsCancellationRequested)
+            {
+                logger.LogWarning(ex, "No se pudo borrar el objeto vencido {Key}", o.Key);
+            }
+        }
+        return deleted;
     }
 }

@@ -1,4 +1,5 @@
 using CamGuard.Api.Common.Data;
+using CamGuard.Api.Common.Storage;
 using CamGuard.Api.Features.Retention;
 
 namespace CamGuard.Tests.Features.Retention;
@@ -40,5 +41,37 @@ public class RetentionPolicyTests
         var expired = RetentionPolicy.ExpiredBefore(cutoff).Compile()(recording);
 
         await Assert.That(expired).IsEqualTo(expected);
+    }
+
+    private static readonly Guid Id = Guid.Parse("0f8fad5b-d9cb-469f-a165-70867728950e");
+
+    [Test]
+    public async Task IsOrphanExpired_OldManagedKey_True()
+    {
+        var cutoff = RetentionPolicy.Cutoff(Now, 30);
+        var startedAt = Now.AddDays(-31);
+
+        await Assert.That(RetentionPolicy.IsOrphanExpired(StorageKeys.Clip(1, Id, startedAt), startedAt, cutoff)).IsTrue();
+        await Assert.That(RetentionPolicy.IsOrphanExpired(StorageKeys.Thumbnail(1, Id, startedAt), startedAt, cutoff)).IsTrue();
+    }
+
+    [Test]
+    public async Task IsOrphanExpired_RecentKey_False()
+    {
+        var cutoff = RetentionPolicy.Cutoff(Now, 30);
+        var startedAt = Now.AddDays(-29);
+
+        await Assert.That(RetentionPolicy.IsOrphanExpired(StorageKeys.Clip(1, Id, startedAt), startedAt, cutoff)).IsFalse();
+    }
+
+    [Test]
+    [Arguments("otra/cosa.mp4")]
+    [Arguments("1/2026/10/04/no-guid.mp4")]
+    [Arguments("1/2026/10/04/0f8fad5bd9cb469fa16570867728950e.txt")]
+    public async Task IsOrphanExpired_ForeignKey_False(string key)
+    {
+        var cutoff = RetentionPolicy.Cutoff(Now, 30);
+
+        await Assert.That(RetentionPolicy.IsOrphanExpired(key, Now.AddDays(-100), cutoff)).IsFalse();
     }
 }

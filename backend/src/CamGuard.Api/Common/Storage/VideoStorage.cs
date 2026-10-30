@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 using Amazon.Runtime;
 using Amazon.S3;
 using Amazon.S3.Model;
@@ -18,16 +20,25 @@ public class StorageOptions
     public int PresignedUrlMinutes { get; set; } = 10;
 }
 
+public record StoredObject(string Key, DateTimeOffset LastModified);
+
 public interface IVideoStorage
 {
     Task UploadAsync(string key, string filePath, string contentType, CancellationToken ct);
     Task DeleteAsync(string key, CancellationToken ct);
+    IAsyncEnumerable<StoredObject> ListAsync(CancellationToken ct);
     string GetPresignedUrl(string key, TimeSpan validFor, string? downloadFileName = null);
 }
 
 /// <summary>Claves de objeto: {cámara}/{yyyy}/{MM}/{dd}/{id}.mp4 y .jpg</summary>
-public static class StorageKeys
+public static partial class StorageKeys
 {
+    /// <summary>Si la clave tiene la forma de un clip o miniatura de CamGuard.</summary>
+    public static bool IsManaged(string key) => ManagedKey().IsMatch(key);
+
+    [GeneratedRegex(@"^\d+/\d{4}/\d{2}/\d{2}/[0-9a-f]{32}\.(mp4|jpg)$")]
+    private static partial Regex ManagedKey();
+
     public static string Clip(int cameraId, Guid recordingId, DateTimeOffset startedAt) =>
         $"{Prefix(cameraId, startedAt)}/{recordingId:N}.mp4";
 
@@ -80,6 +91,22 @@ public sealed class S3VideoStorage : IVideoStorage, IDisposable
     public async Task DeleteAsync(string key, CancellationToken ct)
     {
         await _client.DeleteObjectAsync(_bucket, key, ct);
+    }
+
+    public async IAsyncEnumerable<StoredObject> ListAsync([EnumeratorCancellation] CancellationToken ct)
+    {
+        var request = new ListObjectsV2Request { BucketName = _bucket };
+        do
+        {
+            var response = await _client.ListObjectsV2Async(request, ct);
+            // SDK v4: las colecciones vacías pueden venir null.
+            foreach (var o in response.S3Objects ?? [])
+            {
+                if (o.LastModified is { } modified)
+                    yield return new StoredObject(o.Key, new DateTimeOffset(modified.ToUniversalTime(), TimeSpan.Zero));
+            }
+            request.ContinuationToken = response.NextContinuationToken;
+        } while (!string.IsNullOrEmpty(request.ContinuationToken));
     }
 
     public string GetPresignedUrl(string key, TimeSpan validFor, string? downloadFileName = null)
