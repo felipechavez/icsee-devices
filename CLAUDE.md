@@ -7,7 +7,7 @@ Grabación por movimiento de cámaras iCSee a batería (una o varias) y de dispo
 - `backend/` — .NET 10, un solo proyecto `CamGuard.Api` organizado en **vertical slices**. Pruebas en `tests/CamGuard.Tests` con **TUnit**.
 - `frontend/` — React + Vite + TypeScript, TanStack Query, React Router, SignalR. nginx lo sirve y hace proxy de `/api` y `/hubs`.
 - `keycloak/` — imagen de Keycloak: `realm-camguard.json` (realm, cliente `camguard-web`, primer usuario; se importa solo si el realm no existe) y `theme/` (Keycloakify: login en `src/login` sin CSS de Keycloak: `Template.tsx` propio, clases `cg-*` mapeadas en `KcPage.tsx` y estilos en `main.css`, correos FreeMarker en `src/email`). nginx lo publica en `/auth`.
-- `docker-compose.yml`, `go2rtc.yaml`, `.env.example` — despliegue. `poc/` — scripts de la fase 1. `scripts/backup-db.sh` — respaldo de Postgres (CamGuard y Keycloak). `backend/tools/CamGuard.DbMigrator` — copia única de una base SQL Server antigua a Postgres.
+- `docker-compose.yml`, `go2rtc.yaml`, `.env.example` — despliegue. `poc/` — scripts de la fase 1. `scripts/backup-db.sh` — respaldo de Postgres (CamGuard y Keycloak). `scripts/backup-local.ps1` (comando `/formatear`) — respaldo de lo que git no guarda antes de formatear. `backend/tools/CamGuard.DbMigrator` — copia única de una base SQL Server antigua a Postgres.
 
 ## Comandos
 
