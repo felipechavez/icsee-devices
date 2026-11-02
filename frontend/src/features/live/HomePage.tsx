@@ -5,7 +5,7 @@ import { BatteryBadge } from '../../components/BatteryBadge'
 import { StatusPill } from '../../components/StatusPill'
 import { useNow } from '../../hooks/useNow'
 import { batteryLevel, cameraStatus, LOW_BATTERY } from '../../lib/cameraStatus'
-import { formatAgo, formatGb, formatTime, hourBuckets, localDayKey, todayKey } from '../../lib/format'
+import { formatAgo, formatGb, formatTime, formatWhen, hourBuckets, localDayKey, todayKey } from '../../lib/format'
 import { useCameras } from '../cameras/useCameras'
 import { ClipPlayerModal } from '../recordings/ClipPlayerModal'
 import { RecordingCard } from '../recordings/RecordingCard'
@@ -45,7 +45,7 @@ function CameraCard({ camera, onOpen }: { camera: Camera; onOpen: () => void }) 
       <div className="cam-meta">
         <span>
           Último movimiento{' '}
-          <span className="mono">{camera.lastRecordingAt ? formatTime(camera.lastRecordingAt) : '—'}</span>
+          <span className="mono">{camera.lastRecordingAt ? formatWhen(camera.lastRecordingAt) : '—'}</span>
         </span>
         {camera.clipsToday != null && <span>{camera.clipsToday === 1 ? '1 clip hoy' : `${camera.clipsToday} clips hoy`}</span>}
       </div>
@@ -238,6 +238,7 @@ export function HomePage() {
                 key={r.id}
                 recording={r}
                 onOpen={setOpen}
+                showDay
                 meta={
                   localDayKey(r.startedAt) === todayKey()
                     ? `${r.cameraName} · ${formatAgo(r.startedAt, now.getTime())}`

@@ -70,6 +70,14 @@ export function dayLabel(day: string) {
   return shortDayFormat.format(parseDayKey(day))
 }
 
+/** Hora si es de hoy; si no, "Ayer 22:22" o "jue, 29 oct 22:22". */
+export function formatWhen(iso: string) {
+  const day = localDayKey(iso)
+  if (day === todayKey()) return formatTime(iso)
+  const d = new Date(iso)
+  return `${dayLabel(day)} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 /** Rango [inicio, fin) del día local. */
 export function localDayRange(day: string) {
   const from = parseDayKey(day)

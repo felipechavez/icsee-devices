@@ -1,5 +1,5 @@
 import type { Recording } from '../../api/types'
-import { formatDuration, formatTime } from '../../lib/format'
+import { formatDuration, formatTime, formatWhen } from '../../lib/format'
 
 /** Miniatura del clip, o el motivo por el que aún no hay video. */
 export function ClipThumb({ recording }: { recording: Recording }) {
@@ -58,10 +58,12 @@ interface Props {
   onOpen: (r: Recording) => void
   /** Texto a la derecha de la hora; por defecto, la cámara. */
   meta?: string
+  /** Antepone el día a la hora si el clip no es de hoy (listas sin agrupar por día). */
+  showDay?: boolean
 }
 
 /** Los clips en curso no se abren; los fallidos sí, para ver la explicación. Los descartados no tienen video. */
-export function RecordingCard({ recording, onOpen, meta }: Props) {
+export function RecordingCard({ recording, onOpen, meta, showDay }: Props) {
   const openable = recording.status === 'Uploaded' || recording.status === 'Failed'
 
   return (
@@ -75,7 +77,7 @@ export function RecordingCard({ recording, onOpen, meta }: Props) {
         <ClipThumb recording={recording} />
       </div>
       <div className="clip-meta">
-        <span>{formatTime(recording.startedAt)}</span>
+        <span>{showDay ? formatWhen(recording.startedAt) : formatTime(recording.startedAt)}</span>
         <span>{meta ?? recording.cameraName}</span>
       </div>
     </button>

@@ -74,8 +74,8 @@ Dispositivo Tuya: mensaje de movimiento/timbre/alarma (`movement_detect_pic`, `d
 ## Planes (modo plan)
 
 - Todo plan queda en `.claude/plans/Sprint<N>_<Nombre>/plan.md` (`<Nombre>` corto en PascalCase y en español, sin tildes), p. ej. `Sprint1_Visualizacion/plan.md`, `Sprint2_Multicamara/plan.md`.
-- El sprint es el siguiente al mayor que exista en `.claude/plans/`, salvo que el usuario indique otro o el plan amplíe uno existente.
-- `plansDirectory` (`.claude/settings.json`) guarda el borrador en `.claude/plans/` con nombre aleatorio; al aprobarse, el hook `PostToolUse` de `ExitPlanMode` ejecuta `.claude/hooks/move-plan.ps1`, que lo mueve a `Sprint<N>_<Nombre>/plan.md` (nombre tomado del primer `#` del plan). No lo muevas a mano; si quedó un plan suelto, corre el script.
+- El sprint es el siguiente al mayor que exista en `.claude/plans/`, salvo que el usuario indique otro o el plan amplíe uno existente. Los sprints ya reservados tienen carpeta con `alcance.md` y sin `plan.md`: el próximo plan es el de menor número entre ellos (léelo antes de planificar).
+- `plansDirectory` (`.claude/settings.json`) guarda el borrador en `.claude/plans/` con nombre aleatorio; al aprobarse, el hook `PostToolUse` de `ExitPlanMode` ejecuta `.claude/hooks/move-plan.ps1`, que lo mueve a `Sprint<N>_<Nombre>/plan.md` (número y nombre del primer sprint reservado; si no hay, el siguiente con el nombre tomado del primer `#` del plan). No lo muevas a mano; si quedó un plan suelto, corre el script.
 
 ## Convenciones
 

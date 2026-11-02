@@ -45,11 +45,23 @@ function Get-NextSprint {
     return ($numbers | Measure-Object -Maximum).Maximum + 1
 }
 
+# Sprint ya reservado (carpeta con alcance.md pero sin plan.md): el de menor numero.
+function Get-ReservedSprint {
+    Get-ChildItem -Path $plansDir -Directory |
+        Where-Object { $_.Name -match '^Sprint(\d+)_(.+)$' -and -not (Test-Path (Join-Path $_.FullName 'plan.md')) } |
+        ForEach-Object { [pscustomobject]@{ Number = [int]$Matches[1]; Name = $Matches[2] } } |
+        Sort-Object Number | Select-Object -First 1
+}
+
 $moved = @()
 foreach ($file in $loose) {
-    $number = if ($Sprint -gt 0 -and $loose.Count -eq 1) { $Sprint } else { Get-NextSprint }
+    $reserved = if ($Sprint -le 0) { Get-ReservedSprint } else { $null }
+    $number = if ($Sprint -gt 0 -and $loose.Count -eq 1) { $Sprint }
+        elseif ($reserved) { $reserved.Number }
+        else { Get-NextSprint }
 
     $sprintName = $Name
+    if (-not $sprintName -and $reserved) { $sprintName = $reserved.Name }
     if (-not $sprintName) {
         $heading = Get-Content -Path $file.FullName -Encoding UTF8 |
             Where-Object { $_ -match '^#\s+' } | Select-Object -First 1
