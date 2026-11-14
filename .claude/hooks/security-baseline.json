@@ -1,0 +1,5 @@
+{
+  "_comment": "Linea base de las revisiones de seguridad por sprint (check-sprint-security.ps1). Los sprints exentos se terminaron antes de existir el harness; baseCommit es la base del diff de la primera revision.",
+  "exemptSprints": [1, 2, 3, 4, 5, 6, 7, 8],
+  "baseCommit": "06e6c86"
+}

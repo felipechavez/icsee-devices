@@ -10,6 +10,12 @@
             "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/.claude/hooks/move-plan.ps1\"",
             "timeout": 30,
             "statusMessage": "Moviendo el plan a su sprint..."
+          },
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-sprint-security.ps1\"",
+            "timeout": 30,
+            "statusMessage": "Revisando sprints sin análisis de seguridad..."
           }
         ]
       }
