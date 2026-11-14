@@ -1,3 +1,4 @@
+using System.Text.Json;
 using CamGuard.Api.Common;
 using CamGuard.Api.Common.Data;
 using CamGuard.Api.Common.Notifications;
@@ -31,6 +32,9 @@ public class HealthMonitorService(
     UploadHealth uploads,
     TuyaConnectionState tuya,
     IOptions<TuyaOptions> tuyaOptions,
+    NotifierHealth ntfy,
+    NotificationOutbox outbox,
+    IOptions<NtfyOptions> ntfyOptions,
     IHttpClientFactory httpFactory,
     INotifier notifier,
     IHubContext<EventsHub, IEventsClient> hub,
@@ -82,11 +86,11 @@ public class HealthMonitorService(
         var services = await GatherServicesAsync(now, ct);
         var uploadsHealth = await GatherUploadsAsync(db, ct);
         var storage = await GatherStorageAsync(db, o, ct);
-        var facts = new HealthFacts(cameras, services, uploadsHealth, ReadDisk(), storage, _startedAt);
+        var facts = new HealthFacts(cameras, services, uploadsHealth, ReadDisk(), storage, _startedAt, ReadBackups(o));
 
         var alerts = await db.HealthAlerts.ToDictionaryAsync(a => a.Key, ct);
         var thresholds = new HealthThresholds(settings.LowBatteryPercent, settings.SilentCameraHours,
-            o.UploadStuckMinutes, o.MinFreeDiskMb, o.ServiceGraceMinutes);
+            o.UploadStuckMinutes, o.MinFreeDiskMb, o.ServiceGraceMinutes, o.BackupMaxAgeHours, o.BackupVerifyMaxAgeDays);
         var issues = HealthEvaluator.Evaluate(facts, thresholds, alerts.Keys.ToHashSet(StringComparer.Ordinal), now);
         var decision = HealthAlertPolicy.Decide(issues, alerts, now, TimeSpan.FromHours(o.RepeatHours));
 
@@ -124,7 +128,7 @@ public class HealthMonitorService(
             .OrderByDescending(i => i.Severity).ThenBy(i => i.Since)
             .ToList();
         var previous = store.Current;
-        store.Set(new SystemStatus(now, shown, cameras, services, uploadsHealth, facts.Disk, storage));
+        store.Set(new SystemStatus(now, shown, cameras, services, uploadsHealth, facts.Disk, storage, facts.Backups));
         if (previous is null || !previous.Issues.Select(i => i.Key).ToHashSet().SetEquals(shown.Select(i => i.Key)))
             await hub.Clients.All.HealthUpdated(new HealthUpdatedMessage(shown.Count));
 
@@ -192,6 +196,20 @@ public class HealthMonitorService(
 
         var u = uploads.Current;
         services.Add(new ServiceHealth(HealthEvaluator.R2, u.FailingSince is null, u.FailingSince ?? u.LastSuccessAt, u.LastError));
+
+        if (ntfyOptions.Value.IsConfigured)
+        {
+            var n = ntfy.Current;
+            var pending = outbox.Count;
+            var detail = string.Join(" · ", new[]
+            {
+                pending > 0 ? (pending == 1 ? "1 aviso en espera" : $"{pending} avisos en espera") : null,
+                n.FailingSince is null ? null : n.LastError
+            }.Where(s => s is not null));
+            services.Add(new ServiceHealth(HealthEvaluator.Ntfy, n.FailingSince is null, n.FailingSince ?? n.LastSuccessAt,
+                detail.Length > 0 ? detail : null));
+        }
+
         return services;
     }
 
@@ -244,7 +262,42 @@ public class HealthMonitorService(
         }
     }
 
-    /// <summary>Si ntfy falla, el problema queda sin <c>LastNotifiedAt</c> y se reintenta en la próxima revisión.</summary>
+    private sealed record VerifyResult(DateTimeOffset VerifiedAt, bool Ok, string? File, string? Detail);
+
+    /// <summary>
+    /// Respaldo más nuevo y resultado de scripts/verify-backup.sh (<c>last-verify.json</c>). Null si no se revisan
+    /// o no se pudieron leer.
+    /// </summary>
+    private BackupHealth? ReadBackups(HealthOptions o)
+    {
+        if (string.IsNullOrWhiteSpace(o.BackupDirectory)) return null;
+
+        try
+        {
+            if (!Directory.Exists(o.BackupDirectory)) return new BackupHealth(null, null, null, null);
+
+            var latest = Directory.EnumerateFiles(o.BackupDirectory, "camguard-*.sql.gz")
+                .Select(f => (DateTimeOffset?)new DateTimeOffset(File.GetLastWriteTimeUtc(f), TimeSpan.Zero))
+                .Max();
+
+            var verifyPath = Path.Combine(o.BackupDirectory, "last-verify.json");
+            var verify = File.Exists(verifyPath)
+                ? JsonSerializer.Deserialize<VerifyResult>(File.ReadAllText(verifyPath), JsonSerializerOptions.Web)
+                : null;
+
+            return new BackupHealth(latest, verify?.VerifiedAt.ToUniversalTime(), verify?.Ok, verify?.Detail);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        {
+            logger.LogDebug("No se pudo leer el estado de los respaldos: {Message}", ex.Message);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Con la bandeja de avisos, el envío no falla aunque ntfy esté caído: el aviso sale cuando vuelve.
+    /// Si aun así lanza, el problema queda sin <c>LastNotifiedAt</c> y se reintenta en la próxima revisión.
+    /// </summary>
     private async Task<bool> TryNotifyAsync(string title, string message, int priority, string tag, CancellationToken ct)
     {
         try

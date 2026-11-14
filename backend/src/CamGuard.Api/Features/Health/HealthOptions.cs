@@ -22,6 +22,18 @@ public class HealthOptions
     /// <summary>Días de historial de batería que se conservan (independiente de la retención de clips).</summary>
     public int BatteryHistoryDays { get; set; } = 90;
 
+    /// <summary>
+    /// Carpeta de los respaldos (montada desde ./backups) con <c>camguard-*.sql.gz</c> y <c>last-verify.json</c>
+    /// (ver scripts/verify-backup.sh). Vacía = no se revisan (desarrollo).
+    /// </summary>
+    public string BackupDirectory { get; set; } = "";
+
+    /// <summary>Sin un respaldo más nuevo que esto, el cron dejó de correr.</summary>
+    public int BackupMaxAgeHours { get; set; } = 36;
+
+    /// <summary>La última verificación del respaldo debe ser más nueva que esto.</summary>
+    public int BackupVerifyMaxAgeDays { get; set; } = 8;
+
     // Estimación del costo de R2: los primeros GB son gratis.
     public double R2FreeGb { get; set; } = 10;
     public double R2PricePerGbMonth { get; set; } = 0.015;

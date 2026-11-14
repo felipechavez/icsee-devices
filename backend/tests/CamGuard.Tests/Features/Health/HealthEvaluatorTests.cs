@@ -114,6 +114,64 @@ public class HealthEvaluatorTests
     }
 
     [Test]
+    public async Task Evaluate_NtfyDown_NoIssue()
+    {
+        var ntfy = new ServiceHealth(HealthEvaluator.Ntfy, false, Now.AddHours(-3), "timeout");
+
+        await Assert.That(Keys(Facts(services: [ntfy]))).IsEmpty();
+    }
+
+    private static BackupHealth HealthyBackup => new(Now.AddHours(-9), Now.AddHours(-9), true, null);
+
+    [Test]
+    public async Task Evaluate_BackupsNull_NotChecked()
+    {
+        await Assert.That(Keys(Facts() with { Backups = null })).IsEmpty();
+    }
+
+    [Test]
+    public async Task Evaluate_BackupHealthy_NoIssue()
+    {
+        await Assert.That(Keys(Facts() with { Backups = HealthyBackup })).IsEmpty();
+    }
+
+    [Test]
+    public async Task Evaluate_NoBackup_Opens()
+    {
+        await Assert.That(Keys(Facts() with { Backups = new BackupHealth(null, null, null, null) })).IsEquivalentTo(["backup"]);
+    }
+
+    [Test]
+    public async Task Evaluate_OldBackup_Opens()
+    {
+        var backups = HealthyBackup with { LatestAt = Now.AddHours(-37) };
+
+        await Assert.That(Keys(Facts() with { Backups = backups })).IsEquivalentTo(["backup"]);
+    }
+
+    [Test]
+    public async Task Evaluate_BackupVerifyFailed_OpensWithDetail()
+    {
+        var backups = HealthyBackup with { VerifyOk = false, VerifyDetail = "gzip: archivo truncado" };
+
+        var issues = HealthEvaluator.Evaluate(Facts() with { Backups = backups }, Thresholds, None, Now);
+
+        await Assert.That(issues.Select(i => i.Key)).IsEquivalentTo(["backup-verify"]);
+        await Assert.That(issues[0].Title).IsEqualTo("Falló la verificación del respaldo");
+        await Assert.That(issues[0].Detail).IsEqualTo("gzip: archivo truncado");
+    }
+
+    [Test]
+    public async Task Evaluate_BackupVerifyOldOrMissing_Opens()
+    {
+        var old = HealthyBackup with { VerifiedAt = Now.AddDays(-9) };
+        var never = HealthyBackup with { VerifiedAt = null, VerifyOk = null };
+
+        await Assert.That(Keys(Facts() with { Backups = old })).IsEquivalentTo(["backup-verify"]);
+        await Assert.That(Keys(Facts() with { Backups = never })).IsEquivalentTo(["backup-verify"]);
+    }
+
+    [Test]
     [Arguments(5_000_000_000L, 0)]
     [Arguments(30_000_000_000L, 0.3)]
     public async Task EstimatedMonthlyUsd_AppliesFreeTier(long bytes, double expected)
