@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { HubConnectionBuilder, HubConnectionState, LogLevel } from '@microsoft/signalr'
 import type { HubConnection } from '@microsoft/signalr'
@@ -8,28 +8,10 @@ import type {
   Camera,
   CameraInfoMessage,
   CameraStatusMessage,
-  HealthUpdatedMessage,
-  RecordingCompletedMessage,
   RecordingStartedMessage,
 } from '../api/types'
-
-export interface HubEvents {
-  CameraAwake: CameraStatusMessage
-  CameraAsleep: CameraStatusMessage
-  CameraInfoUpdated: CameraInfoMessage
-  RecordingStarted: RecordingStartedMessage
-  RecordingCompleted: RecordingCompletedMessage
-  HealthUpdated: HealthUpdatedMessage
-}
-
-type HubStatus = 'connecting' | 'connected' | 'reconnecting' | 'disconnected'
-
-interface HubContextValue {
-  connection: HubConnection | null
-  status: HubStatus
-}
-
-const HubContext = createContext<HubContextValue>({ connection: null, status: 'disconnected' })
+import { HubContext } from './eventsHubContext'
+import type { HubStatus } from './eventsHubContext'
 
 // Reintentos indefinidos: 1 s, 2 s, 4 s… hasta 30 s.
 const retryDelay = (attempt: number) => Math.min(30_000, 1000 * 2 ** attempt)
@@ -118,27 +100,4 @@ export function EventsHubProvider({ children }: { children: ReactNode }) {
   }, [queryClient])
 
   return <HubContext.Provider value={{ connection, status }}>{children}</HubContext.Provider>
-}
-
-/** Suscribe un manejador a un evento del hub mientras el componente esté montado. */
-export function useEventsHub<E extends keyof HubEvents>(event: E, handler: (message: HubEvents[E]) => void) {
-  const { connection } = useContext(HubContext)
-  const handlerRef = useRef(handler)
-
-  useEffect(() => {
-    handlerRef.current = handler
-  })
-
-  useEffect(() => {
-    if (!connection) return
-    const listener = (message: HubEvents[E]) => {
-      handlerRef.current(message)
-    }
-    connection.on(event, listener)
-    return () => connection.off(event, listener)
-  }, [connection, event])
-}
-
-export function useHubStatus() {
-  return useContext(HubContext).status
 }

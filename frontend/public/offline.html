@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark light" />
+    <title>CamGuard · Sin conexión</title>
+    <style>
+      :root {
+        --bg: #0c0d0f;
+        --surface: #141619;
+        --line: #24272c;
+        --text: #ececee;
+        --muted: #8d939c;
+        --red: #ff5544;
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg: #f5f5f2;
+          --surface: #fff;
+          --line: #e2e2dd;
+          --text: #16181b;
+          --muted: #5f646c;
+        }
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+      body {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px 16px;
+        background: var(--bg);
+        color: var(--text);
+        font: 15px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
+      }
+      main {
+        width: 100%;
+        max-width: 380px;
+        padding: 28px 24px;
+        text-align: center;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+      }
+      .mark {
+        width: 14px;
+        height: 14px;
+        margin: 0 auto 16px;
+        border-radius: 50%;
+        background: var(--muted);
+        box-shadow: 0 0 0 5px rgb(255 85 68 / 0.18);
+      }
+      h1 {
+        font-size: 18px;
+        font-weight: 600;
+      }
+      p {
+        margin-top: 8px;
+        color: var(--muted);
+      }
+      button {
+        margin-top: 20px;
+        padding: 11px 20px;
+        font: inherit;
+        font-weight: 600;
+        color: var(--bg);
+        background: var(--text);
+        border: 0;
+        border-radius: 10px;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="mark" aria-hidden="true"></div>
+      <h1>Sin conexión con CamGuard</h1>
+      <p>Revisa que el celular tenga internet y que Tailscale esté conectado. Las cámaras siguen grabando.</p>
+      <button type="button" onclick="location.reload()">Reintentar</button>
+    </main>
+  </body>
+</html>

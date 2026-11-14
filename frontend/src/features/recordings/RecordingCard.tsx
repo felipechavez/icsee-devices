@@ -18,6 +18,13 @@ export function ClipThumb({ recording }: { recording: Recording }) {
           <span>Sin personas ni animales</span>
         </div>
       )
+    case 'Evicted':
+      return (
+        <div className="clip-note clip-note-failed">
+          <strong>Borrado sin subir</strong>
+          <span>Sin espacio mientras no había internet</span>
+        </div>
+      )
     case 'Recording':
     case 'Analyzing':
     case 'Uploading':
@@ -62,7 +69,7 @@ interface Props {
   showDay?: boolean
 }
 
-/** Los clips en curso no se abren; los fallidos sí, para ver la explicación. Los descartados no tienen video. */
+/** Los clips en curso no se abren; los fallidos sí, para ver la explicación. Los descartados y borrados no tienen video. */
 export function RecordingCard({ recording, onOpen, meta, showDay }: Props) {
   const openable = recording.status === 'Uploaded' || recording.status === 'Failed'
 

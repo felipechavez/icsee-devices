@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import type { CameraHealth, HealthIssue, ServiceHealth, SystemStatus } from '../../api/types'
+import type { BackupHealth, CameraHealth, HealthIssue, ServiceHealth, SystemStatus } from '../../api/types'
 import { BatteryBadge } from '../../components/BatteryBadge'
 import { useNow } from '../../hooks/useNow'
 import { formatAgo, formatGb } from '../../lib/format'
@@ -109,6 +109,30 @@ function serviceRow(s: ServiceHealth, now: number): { label: string; text: strin
         text: s.ok ? (since ? `Última subida ${since}` : 'Sin subidas desde que arrancó') : failing('Fallando'),
         health: s.ok ? 'ok' : 'error',
       }
+    case 'ntfy':
+      // Sin problema abierto: los avisos esperan en la bandeja y salen al volver ntfy.
+      return {
+        label: 'Avisos (ntfy)',
+        text: s.ok
+          ? [since ? `Último aviso ${since}` : 'Sin avisos desde que arrancó', s.detail].filter(Boolean).join(' · ')
+          : failing('Sin conexión'),
+        health: s.ok ? 'ok' : 'warn',
+      }
+  }
+}
+
+function backupRow(b: BackupHealth, open: Set<string>, now: number): { label: string; text: string; health: Health } {
+  const latest = b.latestAt ? `Último ${formatAgo(b.latestAt, now)}` : 'Sin respaldos'
+  const verified =
+    b.verifiedAt == null
+      ? 'sin verificar'
+      : b.verifyOk
+        ? `verificado ${formatAgo(b.verifiedAt, now)}`
+        : `falló la verificación ${formatAgo(b.verifiedAt, now)}`
+  return {
+    label: 'Respaldo',
+    text: `${latest} · ${verified}`,
+    health: open.has('backup') ? 'error' : open.has('backup-verify') ? 'warn' : 'ok',
   }
 }
 
@@ -135,6 +159,8 @@ function Services({ status, now }: { status: SystemStatus; now: number }) {
       health: open.has('disk') ? 'error' : 'ok',
     })
   }
+
+  if (status.backups) rows.push(backupRow(status.backups, open, now))
 
   return (
     <div className="panel">

@@ -1,4 +1,5 @@
-export type RecordingStatus = 'Recording' | 'Analyzing' | 'Uploading' | 'Uploaded' | 'Failed' | 'Discarded'
+/** Evicted: se borró del equipo por falta de espacio antes de subirse (sin internet). */
+export type RecordingStatus = 'Recording' | 'Analyzing' | 'Uploading' | 'Uploaded' | 'Failed' | 'Discarded' | 'Evicted'
 
 /** Off: sin IA. Tag: etiqueta y sube todo. Filter: descarta los clips sin personas ni animales. */
 export type DetectionMode = 'Off' | 'Tag' | 'Filter'
@@ -138,13 +139,15 @@ export interface Settings {
   lowBatteryPercent: number
   /** 6–336 h sin despertar para dar una cámara por caída. */
   silentCameraHours: number
+  /** 1–500 GB de clips esperando subir; al pasarlo se borran los de menor prioridad. */
+  localMaxGb: number
 }
 
 // Estado del sistema (GET /api/status)
 export type HealthSeverity = 'Warning' | 'Critical'
 
 export interface HealthIssue {
-  /** "battery:{id}", "silent:{id}", "service:{nombre}", "queue" o "disk". */
+  /** "battery:{id}", "silent:{id}", "service:{nombre}", "queue", "disk", "backup" o "backup-verify". */
   key: string
   severity: HealthSeverity
   title: string
@@ -174,7 +177,8 @@ export interface CameraHealth {
   activationsPerDay: number
 }
 
-export type ServiceName = 'go2rtc' | 'tuya' | 'r2'
+/** ntfy solo se muestra: no abre problema (el aviso llegaría atrasado). */
+export type ServiceName = 'go2rtc' | 'tuya' | 'r2' | 'ntfy'
 
 export interface ServiceHealth {
   name: ServiceName
@@ -193,6 +197,17 @@ export interface SystemStatus {
   /** Null si no se pudo leer. */
   disk: { freeBytes: number; totalBytes: number } | null
   storage: { usedBytes: number; clips: number; estimatedMonthlyUsd: number }
+  /** Null si no se revisan (desarrollo). */
+  backups: BackupHealth | null
+}
+
+export interface BackupHealth {
+  /** Último camguard-*.sql.gz; null = ninguno. */
+  latestAt: string | null
+  /** Última verificación (scripts/verify-backup.sh); null = nunca. */
+  verifiedAt: string | null
+  verifyOk: boolean | null
+  verifyDetail: string | null
 }
 
 // Mensajes del hub /hubs/events

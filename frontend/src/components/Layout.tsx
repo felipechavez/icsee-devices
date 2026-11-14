@@ -1,7 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { useSystemStatus } from '../features/status/useSystemStatus'
 import { useAuth } from '../hooks/useAuth'
-import { useHubStatus } from '../hooks/useEventsHub'
+import { useHubStatus } from '../hooks/eventsHubContext'
 import { useNow } from '../hooks/useNow'
 import { useTheme } from '../hooks/useTheme'
 import type { Theme } from '../hooks/useTheme'
@@ -34,6 +34,7 @@ export function Layout() {
         </div>
         <nav className="nav">
           <NavLink to="/" end>Inicio</NavLink>
+          <NavLink to="/live">Vivo</NavLink>
           <NavLink to="/recordings">Grabaciones</NavLink>
           <NavLink to="/status">
             Estado
@@ -47,7 +48,10 @@ export function Layout() {
               </span>
             )}
           </NavLink>
-          <NavLink to="/settings">Configuración</NavLink>
+          <NavLink to="/settings">
+            <span className="nav-long">Configuración</span>
+            <span className="nav-short">Config.</span>
+          </NavLink>
         </nav>
         <div className="topbar-end">
           {hubStatus !== 'connected' && (

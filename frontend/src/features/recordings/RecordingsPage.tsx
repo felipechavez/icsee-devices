@@ -8,9 +8,13 @@ import { DayTimeline } from './DayTimeline'
 import { RecordingList } from './RecordingList'
 import { useRecordingList, useRecordingSummary, useTimeline } from './useRecordings'
 
-type Filter = 'all' | 'failed' | 'discarded'
+type Filter = 'all' | 'failed' | 'discarded' | 'evicted'
 
-const statusByFilter = { all: null, failed: 'Failed', discarded: 'Discarded' } as const
+const statusByFilter = { all: null, failed: 'Failed', discarded: 'Discarded', evicted: 'Evicted' } as const
+const isFilter = (s: string | null): s is Filter => s !== null && s in statusByFilter
+
+/** Sin video: no se marcan en la línea de tiempo, solo se cuentan. */
+const withoutVideo = new Set(['Discarded', 'Evicted'])
 
 export function RecordingsPage() {
   const [params, setParams] = useSearchParams()
@@ -20,7 +24,7 @@ export function RecordingsPage() {
   const cameraParam = params.get('camera')
   const cameraId = cameraParam ? Number(cameraParam) : null
   const statusParam = params.get('status')
-  const filter: Filter = statusParam === 'failed' || statusParam === 'discarded' ? statusParam : 'all'
+  const filter: Filter = isFilter(statusParam) ? statusParam : 'all'
 
   const cameras = useCameras()
   const settings = useSettings()
@@ -30,11 +34,12 @@ export function RecordingsPage() {
 
   const recordings = list.data?.pages.flatMap((p) => p.items) ?? []
   const openClip = recordings.find((r) => r.id === clipId)
-  // Los descartados por la IA no tienen video: solo se cuentan, no se marcan en la línea de tiempo.
+  // Los descartados por la IA y los borrados por falta de espacio no tienen video.
   const allMarks = timeline.data ?? []
-  const marks = allMarks.filter((m) => m.status !== 'Discarded')
+  const marks = allMarks.filter((m) => !withoutVideo.has(m.status))
   const failedCount = marks.filter((m) => m.status === 'Failed').length
-  const discardedCount = allMarks.length - marks.length
+  const discardedCount = allMarks.filter((m) => m.status === 'Discarded').length
+  const evictedCount = allMarks.filter((m) => m.status === 'Evicted').length
   const retentionDays = settings.data?.retentionDays ?? 30
   const isToday = day >= today
   const isOldest = daysBetween(day, today) >= retentionDays - 1
@@ -70,6 +75,10 @@ export function RecordingsPage() {
               { value: 'all', label: `Todos · ${marks.length}` },
               { value: 'failed', label: `Fallidos · ${failedCount}` },
               { value: 'discarded', label: `Descartados · ${discardedCount}` },
+              // Solo aparece si hubo un corte de internet largo que llenó el disco.
+              ...(evictedCount > 0 || filter === 'evicted'
+                ? [{ value: 'evicted' as const, label: `Sin espacio · ${evictedCount}` }]
+                : []),
             ]}
           />
           <div className="daynav">

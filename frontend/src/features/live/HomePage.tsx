@@ -102,7 +102,7 @@ function StatePanel({ camera }: { camera: Camera }) {
 
 function ActivityPanel({ camera }: { camera: Camera }) {
   const timeline = useTimeline(todayKey(), camera.id)
-  const items = (timeline.data ?? []).filter((i) => i.status !== 'Discarded')
+  const items = (timeline.data ?? []).filter((i) => i.status !== 'Discarded' && i.status !== 'Evicted')
   const counts = hourBuckets(items)
   const max = Math.max(...counts, 1)
 
@@ -210,9 +210,14 @@ export function HomePage() {
                 <h1 className="page-title">Cámaras</h1>
                 <span className="head-sub">{summary(all)}</span>
               </div>
-              <Link className="btn" to="/settings">
-                Administrar
-              </Link>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Link className="btn" to="/live">
+                  Mosaico en vivo
+                </Link>
+                <Link className="btn" to="/settings">
+                  Administrar
+                </Link>
+              </div>
             </div>
             <div className="cam-grid">
               {all.map((camera) => (
@@ -227,9 +232,16 @@ export function HomePage() {
         <section className="page" style={{ gap: 14 }}>
           <div className="head-row">
             <h2 className="section-title">Últimos clips</h2>
-            <Link className="btn btn-link" to="/recordings">
-              Ver todos →
-            </Link>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {recent.length > 0 && (
+                <Link className="btn" to="/latest">
+                  Último clip
+                </Link>
+              )}
+              <Link className="btn btn-link" to="/recordings">
+                Ver todos →
+              </Link>
+            </div>
           </div>
           {latest.data && recent.length === 0 && <div className="empty">Todavía no hay clips.</div>}
           <div className="clip-grid">

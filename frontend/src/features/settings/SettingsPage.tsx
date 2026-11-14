@@ -12,7 +12,13 @@ import { emptyDraft, isChanged, streamFromName, toDraft } from './cameraDraft'
 import type { CameraDraft } from './cameraDraft'
 import { useSettings } from './useSettings'
 
-type NumericKey = 'maxClipSeconds' | 'cooldownSeconds' | 'retentionDays' | 'lowBatteryPercent' | 'silentCameraHours'
+type NumericKey =
+  | 'maxClipSeconds'
+  | 'cooldownSeconds'
+  | 'retentionDays'
+  | 'localMaxGb'
+  | 'lowBatteryPercent'
+  | 'silentCameraHours'
 
 interface Field {
   key: NumericKey
@@ -53,6 +59,15 @@ const fields: Field[] = [
     min: 1,
     max: 365,
   },
+  {
+    key: 'localMaxGb',
+    label: 'Espacio para clips sin subir',
+    hint: 'Sin internet los clips esperan en el equipo. Al pasar este tope se borran primero los sin personas ni animales y los más antiguos.',
+    unit: 'GB',
+    step: 1,
+    min: 1,
+    max: 500,
+  },
 ]
 
 const alertFields: Field[] = [
@@ -77,6 +92,10 @@ const alertFields: Field[] = [
 ]
 
 const NEW = 'new'
+
+/** Límites (en %) que acepta la API para la confianza mínima de la IA. */
+const CONFIDENCE_MIN = 20
+const CONFIDENCE_MAX = 95
 type Key = string // id de cámara, o NEW para el alta
 
 const settingsValid = (s: Settings) =>
@@ -279,16 +298,22 @@ export function SettingsPage() {
                   </div>
                 </div>
                 <div className="range">
-                  <input
-                    type="range"
-                    min={20}
-                    max={95}
-                    step={5}
-                    aria-label="Confianza mínima de la IA"
-                    value={Math.round(form.detectionMinConfidence * 100)}
-                    onChange={(e) => setSettingsDraft({ ...form, detectionMinConfidence: e.target.valueAsNumber / 100 })}
-                  />
-                  <span>{Math.round(form.detectionMinConfidence * 100)} %</span>
+                  <div className="range-track">
+                    <input
+                      type="range"
+                      min={CONFIDENCE_MIN}
+                      max={CONFIDENCE_MAX}
+                      step={5}
+                      aria-label="Confianza mínima de la IA"
+                      value={Math.round(form.detectionMinConfidence * 100)}
+                      onChange={(e) => setSettingsDraft({ ...form, detectionMinConfidence: e.target.valueAsNumber / 100 })}
+                    />
+                    <div className="range-limits" aria-hidden="true">
+                      <span>{CONFIDENCE_MIN} %</span>
+                      <span>{CONFIDENCE_MAX} %</span>
+                    </div>
+                  </div>
+                  <span className="range-value">{Math.round(form.detectionMinConfidence * 100)} %</span>
                 </div>
               </div>
             </div>

@@ -4,6 +4,8 @@ import { ApiError } from './api/client'
 import { Layout } from './components/Layout'
 import { ToastProvider } from './components/Toast'
 import { HomePage } from './features/live/HomePage'
+import { LiveMosaicPage } from './features/live/LiveMosaicPage'
+import { LatestRedirect } from './features/recordings/LatestRedirect'
 import { RecordingsPage } from './features/recordings/RecordingsPage'
 import { SettingsPage } from './features/settings/SettingsPage'
 import { StatusPage } from './features/status/StatusPage'
@@ -28,6 +30,8 @@ export default function App() {
           <Routes>
             <Route element={<Layout />}>
               <Route index element={<HomePage />} />
+              <Route path="live" element={<LiveMosaicPage />} />
+              <Route path="latest" element={<LatestRedirect />} />
               <Route path="recordings" element={<RecordingsPage />} />
               <Route path="status" element={<StatusPage />} />
               <Route path="settings" element={<SettingsPage />} />

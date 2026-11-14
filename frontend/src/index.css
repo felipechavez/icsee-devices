@@ -1743,12 +1743,28 @@ input[type='number'] {
   gap: 12px;
 }
 
-.range input {
+.range-track {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   width: 160px;
+}
+
+.range input {
+  width: 100%;
+  margin: 0;
   accent-color: var(--green);
 }
 
-.range span {
+/* Extremos de la escala: el deslizador no va de 0 a 100 */
+.range-limits {
+  display: flex;
+  justify-content: space-between;
+  font: 400 11px var(--mono);
+  color: var(--muted);
+}
+
+.range-value {
   min-width: 44px;
   text-align: right;
   font: 500 14px var(--mono);
@@ -1985,19 +2001,146 @@ input[type='number'] {
   overflow-wrap: anywhere;
 }
 
+/* ---------- Mosaico en vivo (/live) ---------- */
+.mosaic {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
+  gap: 16px;
+}
+
+.mosaic[data-single] {
+  grid-template-columns: minmax(0, 960px);
+}
+
+.mosaic-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mosaic-tile[data-paused] {
+  opacity: 0.6;
+}
+
+.mosaic-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mosaic-head strong {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mosaic-detail {
+  margin-left: auto;
+  padding: 4px 6px;
+  font-size: 13px;
+}
+
+/* Player compacto: mosaicos chicos, sobre todo en el celular. */
+.frame[data-compact] .live-idle {
+  gap: 8px;
+  padding: 12px;
+}
+
+.frame[data-compact] .live-idle strong {
+  font-size: 14px;
+}
+
+.frame[data-compact] .live-idle p {
+  font-size: 12px;
+}
+
+.frame[data-compact] .frame-tl {
+  top: 8px;
+  left: 8px;
+}
+
+.frame[data-compact] .frame-br {
+  right: 8px;
+  bottom: 8px;
+  gap: 6px !important;
+}
+
+.frame[data-compact] .btn-overlay {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.frame[data-compact] .live-badge {
+  padding: 3px 7px;
+  font-size: 11px;
+}
+
+.nav-short {
+  display: none;
+}
+
+/* App instalada en iPhone: respeta el notch y la barra de inicio. */
+.topbar {
+  height: calc(60px + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+}
+
 /* ---------- Móvil ---------- */
 @media (max-width: 760px) {
   .topbar {
     flex-wrap: wrap;
     gap: 8px 16px;
     height: auto;
-    padding: 10px 16px;
+    padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
   }
 
+  /* Barra de navegación inferior fija, al alcance del pulgar. */
   .nav {
-    order: 3;
-    width: 100%;
-    overflow-x: auto;
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 20;
+    justify-content: space-around;
+    gap: 0;
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+    background: var(--header);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid var(--line);
+  }
+
+  .nav a {
+    flex: 1;
+    justify-content: center;
+    padding: 10px 4px;
+    font-size: 13px;
+  }
+
+  .nav-long {
+    display: none;
+  }
+
+  .nav-short {
+    display: inline;
+  }
+
+  .mosaic {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .mosaic[data-single] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* En dos columnas no cabe todo el encabezado: solo nombre y estado. */
+  .mosaic:not([data-single]) .battery,
+  .mosaic:not([data-single]) .mosaic-detail {
+    display: none;
   }
 
   .topbar-end {
@@ -2009,7 +2152,7 @@ input[type='number'] {
   }
 
   .content {
-    padding: 24px 16px 96px;
+    padding: 24px 16px calc(96px + env(safe-area-inset-bottom));
   }
 
   .settings-body {
@@ -2031,5 +2174,12 @@ input[type='number'] {
 
   .player {
     padding: 16px;
+  }
+}
+
+/* Teléfonos angostos: en mosaicos de ~170 px solo cabe el título y el botón. */
+@media (max-width: 420px) {
+  .mosaic:not([data-single]) .frame[data-compact] .live-idle p {
+    display: none;
   }
 }
