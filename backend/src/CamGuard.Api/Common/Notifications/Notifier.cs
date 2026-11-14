@@ -12,6 +12,11 @@ public class NtfyOptions
 
     /// <summary>Token de acceso opcional (instancias con autenticación).</summary>
     public string? Token { get; set; }
+
+    /// <summary>Un aviso que no se pudo enviar en estas horas se descarta (ver <see cref="NotificationOutbox"/>).</summary>
+    public int MaxDelayHours { get; set; } = 6;
+
+    public bool IsConfigured => !string.IsNullOrWhiteSpace(Url);
 }
 
 /// <param name="Priority">Prioridad de ntfy (1 mínima … 5 urgente); null = la del servidor (3).</param>
@@ -24,7 +29,8 @@ public interface INotifier
 
 /// <summary>
 /// Publica en ntfy usando el formato JSON (permite tildes en el título,
-/// cosa que las cabeceras HTTP no admiten).
+/// cosa que las cabeceras HTTP no admiten). Lanza si falla: la app no lo usa directo,
+/// sino a través de <see cref="OutboxNotifier"/>.
 /// </summary>
 public class NtfyNotifier(HttpClient http, IOptions<NtfyOptions> options, ILogger<NtfyNotifier> logger) : INotifier
 {

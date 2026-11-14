@@ -58,6 +58,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(s => s.HealthAlertsEnabled).HasDefaultValue(true).HasSentinel(true);
             e.Property(s => s.LowBatteryPercent).HasDefaultValue(20);
             e.Property(s => s.SilentCameraHours).HasDefaultValue(48);
+            e.Property(s => s.LocalMaxGb).HasDefaultValue(5);
             e.HasData(new AppSettings());
         });
 

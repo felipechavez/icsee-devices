@@ -28,7 +28,6 @@ var config = builder.Configuration;
 builder.Services.Configure<AppOptions>(config.GetSection(AppOptions.Section));
 builder.Services.Configure<Go2rtcOptions>(config.GetSection(Go2rtcOptions.Section));
 builder.Services.Configure<StorageOptions>(config.GetSection(StorageOptions.Section));
-builder.Services.Configure<NtfyOptions>(config.GetSection(NtfyOptions.Section));
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddDbContext<AppDbContext>(o => o.UseNpgsql(config.GetConnectionString("Default")));
 builder.Services.AddSingleton<CameraEventChannel>();
@@ -38,7 +37,7 @@ builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(config[$"{AppOptions.Section}:DataDirectory"] ?? "data", "keys")));
 builder.Services.AddSingleton<CameraSecretProtector>();
 builder.Services.AddSingleton<IVideoStorage, S3VideoStorage>();
-builder.Services.AddHttpClient<INotifier, NtfyNotifier>();
+builder.Services.AddNotifications(config);
 builder.Services.AddJwtAuth(config);
 builder.Services.AddSignalR()
     .AddJsonProtocol(o => o.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
@@ -51,7 +50,7 @@ builder.Services.AddEndpoints(typeof(Program).Assembly);
 builder.Services.AddMonitoringFeature(config);
 builder.Services.AddCaptureFeature(config);
 builder.Services.AddDetectionFeature(config);
-builder.Services.AddUploadFeature();
+builder.Services.AddUploadFeature(config);
 builder.Services.AddLiveFeature(config);
 builder.Services.AddStreamsFeature(config);
 builder.Services.AddDevicesFeature(config);

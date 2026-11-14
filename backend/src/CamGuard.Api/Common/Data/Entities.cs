@@ -95,7 +95,10 @@ public enum RecordingStatus
     Failed,
 
     /// <summary>La IA no encontró personas ni animales (modo Filter): no se sube y los archivos se borran.</summary>
-    Discarded
+    Discarded,
+
+    /// <summary>Se borró del equipo por falta de espacio antes de subirse (sin internet; ver Features/Upload).</summary>
+    Evicted
 }
 
 public class Recording
@@ -165,6 +168,12 @@ public class AppSettings
 
     /// <summary>Horas sin despertar tras las que una cámara habilitada se da por caída.</summary>
     public int SilentCameraHours { get; set; } = 48;
+
+    /// <summary>
+    /// Tope en GB de los clips que esperan en el equipo (sin internet se acumulan). Al pasarlo se borran
+    /// los de menor prioridad (ver Features/Upload/LocalEvictionPolicy).
+    /// </summary>
+    public int LocalMaxGb { get; set; } = 5;
 }
 
 /// <summary>Lectura de batería de una cámara, para el historial y el pronóstico (ver Features/Health).</summary>

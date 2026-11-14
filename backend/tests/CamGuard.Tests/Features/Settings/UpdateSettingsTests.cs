@@ -46,6 +46,16 @@ public class UpdateSettingsTests
     }
 
     [Test]
+    [Arguments(0)]
+    [Arguments(501)]
+    public async Task Validate_LocalMaxGbOutOfRange_ReportsField(int gb)
+    {
+        var errors = UpdateSettings.Validate(new SettingsDto(60, 10, 30, LocalMaxGb: gb));
+
+        await Assert.That(errors.Keys).IsEquivalentTo([nameof(SettingsDto.LocalMaxGb)]);
+    }
+
+    [Test]
     [Arguments(4, 48, nameof(SettingsDto.LowBatteryPercent))]
     [Arguments(51, 48, nameof(SettingsDto.LowBatteryPercent))]
     [Arguments(20, 5, nameof(SettingsDto.SilentCameraHours))]

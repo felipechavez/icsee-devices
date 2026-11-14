@@ -12,7 +12,9 @@ namespace CamGuard.Api.Features.Upload;
 
 /// <summary>
 /// Sube clip y miniatura, marca la grabación como Uploaded, avisa por SignalR
-/// y por ntfy. Si algo falla, reprograma el trabajo con backoff.
+/// y por ntfy. Si algo falla, reprograma el trabajo con backoff y pausa toda la cola
+/// (con R2 caído, N clips no deben ser N timeouts por ciclo). Sin internet, además, mantiene
+/// los clips en espera bajo <see cref="AppSettings.LocalMaxGb"/> (ver <see cref="LocalEvictionPolicy"/>).
 /// </summary>
 public class UploadService(
     UploadQueue queue,
@@ -22,10 +24,19 @@ public class UploadService(
     INotifier notifier,
     IHubContext<EventsHub, IEventsClient> hub,
     IOptions<AppOptions> appOptions,
+    IOptions<UploadOptions> uploadOptions,
     TimeProvider clock,
     ILogger<UploadService> logger) : BackgroundService
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan EvictionInterval = TimeSpan.FromMinutes(1);
+
+    private DateTimeOffset _pausedUntil = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastEvictionAt = DateTimeOffset.MinValue;
+    private int _consecutiveFailures;
+
+    /// <summary>¿Se procesa el lote? No mientras dure la pausa que dejó el último fallo.</summary>
+    public static bool ShouldProcess(DateTimeOffset now, DateTimeOffset pausedUntil) => now >= pausedUntil;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -33,9 +44,20 @@ public class UploadService(
         {
             try
             {
-                foreach (var job in await queue.GetDueAsync(clock.GetUtcNow(), stoppingToken))
+                var now = clock.GetUtcNow();
+                if (now - _lastEvictionAt >= EvictionInterval)
                 {
-                    await ProcessAsync(job, stoppingToken);
+                    // Es el único hilo que toca la cola: no compite con una subida en curso.
+                    _lastEvictionAt = now;
+                    await EvictIfNeededAsync(stoppingToken);
+                }
+
+                if (ShouldProcess(now, _pausedUntil))
+                {
+                    foreach (var job in await queue.GetDueAsync(now, stoppingToken))
+                    {
+                        if (!await ProcessAsync(job, stoppingToken)) break;
+                    }
                 }
 
                 await queue.WaitAsync(PollInterval, stoppingToken);
@@ -52,7 +74,8 @@ public class UploadService(
         }
     }
 
-    private async Task ProcessAsync(UploadJob job, CancellationToken ct)
+    /// <summary>False si la subida falló: se corta el lote y la cola queda en pausa.</summary>
+    private async Task<bool> ProcessAsync(UploadJob job, CancellationToken ct)
     {
         using var scope = scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -62,7 +85,7 @@ public class UploadService(
         {
             logger.LogWarning("La grabación {Id} ya no existe; se descarta el trabajo", job.RecordingId);
             Cleanup(job);
-            return;
+            return true;
         }
 
         try
@@ -72,6 +95,8 @@ public class UploadService(
                 await storage.UploadAsync(recording.ThumbnailKey, job.ThumbnailPath, "image/jpeg", ct);
 
             health.Succeeded();
+            _pausedUntil = DateTimeOffset.MinValue;
+            _consecutiveFailures = 0;
 
             recording.Status = RecordingStatus.Uploaded;
             await db.SaveChangesAsync(ct);
@@ -80,10 +105,13 @@ public class UploadService(
         {
             health.Failed(ex.Message);
             var attempts = job.Attempts + 1;
-            var delay = RetryPolicy.Delay(attempts);
-            logger.LogWarning(ex, "Falló la subida de {Id} (intento {Attempt}); se reintenta en {Delay}", job.RecordingId, attempts, delay);
-            await queue.SaveAsync(job with { Attempts = attempts, NextAttemptAt = clock.GetUtcNow() + delay }, ct);
-            return;
+            // Tras la pausa puede fallar otro clip con menos intentos: el backoff sigue los fallos seguidos de la cola.
+            _consecutiveFailures++;
+            var delay = RetryPolicy.Delay(Math.Max(attempts, _consecutiveFailures));
+            _pausedUntil = clock.GetUtcNow() + delay;
+            logger.LogWarning(ex, "Falló la subida de {Id} (intento {Attempt}); la cola se pausa {Delay}", job.RecordingId, attempts, delay);
+            await queue.SaveAsync(job with { Attempts = attempts, NextAttemptAt = _pausedUntil }, ct);
+            return false;
         }
 
         Cleanup(job);
@@ -91,6 +119,89 @@ public class UploadService(
 
         await hub.Clients.All.RecordingCompleted(new RecordingCompletedMessage(recording.Id, recording.CameraId, recording.StartedAt));
         await NotifyAsync(recording, ct);
+        return true;
+    }
+
+    /// <summary>
+    /// Si los clips en {DataDirectory}/clips pasan <see cref="AppSettings.LocalMaxGb"/> o queda menos de
+    /// <see cref="UploadOptions.MinFreeDiskMb"/> libre, borra clips en espera por prioridad y los marca Evicted.
+    /// Solo los Uploading: los Recording están abiertos por FFmpeg y los Analyzing pasan a Uploading en segundos.
+    /// </summary>
+    private async Task EvictIfNeededAsync(CancellationToken ct)
+    {
+        var dataDirectory = appOptions.Value.DataDirectory;
+        var clipsDir = Path.GetDirectoryName(ClipPaths.For(dataDirectory, Guid.Empty).Clip)!;
+        var used = DirectorySize(clipsDir);
+        long free;
+        try
+        {
+            free = new DriveInfo(Path.GetFullPath(dataDirectory)).AvailableFreeSpace;
+        }
+        catch (Exception ex) when (ex is IOException or ArgumentException or UnauthorizedAccessException)
+        {
+            free = long.MaxValue / 2; // sin dato de disco, solo se aplica el tope
+        }
+
+        using var scope = scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var settings = await db.GetSettingsAsync(ct);
+        var maxBytes = settings.LocalMaxGb * (1L << 30);
+        var minFree = uploadOptions.Value.MinFreeDiskMb * (1L << 20);
+        if (!LocalEvictionPolicy.IsOver(used, free, maxBytes, minFree)) return;
+
+        var waiting = await db.Recordings.Where(r => r.Status == RecordingStatus.Uploading).ToListAsync(ct);
+        var priority = await PriorityEvents.WithPriorityEventAsync(db, waiting, ct);
+        var candidates = waiting.Select(r =>
+        {
+            var (clip, thumb) = ClipPaths.For(dataDirectory, r.Id);
+            return new EvictionCandidate(r.Id, r.StartedAt, FileSize(clip) + FileSize(thumb),
+                LocalEvictionPolicy.Tier(r.Detection, priority.Contains(r.Id)));
+        });
+
+        var selected = LocalEvictionPolicy.Select(candidates, used, free, maxBytes, minFree);
+        if (selected.Count == 0) return;
+
+        var byId = waiting.ToDictionary(r => r.Id);
+        foreach (var c in selected)
+        {
+            var recording = byId[c.Id];
+            var (clip, thumb) = ClipPaths.For(dataDirectory, c.Id);
+            queue.Remove(c.Id);
+            TryDelete(clip);
+            TryDelete(thumb);
+            recording.Status = RecordingStatus.Evicted;
+            recording.StorageKey = null;
+            recording.ThumbnailKey = null;
+            logger.LogWarning("Sin espacio para clips en espera: se borró sin subir el clip {Id} ({Tier}, {StartedAt:u}, {Mb:0.0} MB)",
+                c.Id, c.Tier, c.StartedAt, c.Bytes / 1048576.0);
+        }
+
+        await db.SaveChangesAsync(ct);
+        foreach (var c in selected)
+        {
+            var r = byId[c.Id];
+            await hub.Clients.All.RecordingCompleted(new RecordingCompletedMessage(r.Id, r.CameraId, r.StartedAt));
+        }
+    }
+
+    private static long DirectorySize(string directory)
+    {
+        long total = 0;
+        foreach (var file in Directory.EnumerateFiles(directory))
+            total += FileSize(file);
+        return total;
+    }
+
+    private static long FileSize(string path)
+    {
+        try
+        {
+            return new FileInfo(path).Length;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return 0;
+        }
     }
 
     private async Task NotifyAsync(Recording recording, CancellationToken ct)
@@ -147,8 +258,9 @@ public class UploadService(
 
 public static class UploadFeature
 {
-    public static IServiceCollection AddUploadFeature(this IServiceCollection services)
+    public static IServiceCollection AddUploadFeature(this IServiceCollection services, IConfiguration configuration)
     {
+        services.Configure<UploadOptions>(configuration.GetSection(UploadOptions.Section));
         services.AddSingleton<UploadQueue>();
         services.AddSingleton<UploadHealth>();
         services.AddHostedService<UploadService>();

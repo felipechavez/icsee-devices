@@ -11,12 +11,13 @@ public static class RetentionPolicy
         now.AddDays(-Math.Max(1, retentionDays));
 
     /// <summary>
-    /// Solo se borran clips terminados (los descartados por la IA no tienen archivo remoto); los que están
-    /// grabando, analizándose o subiendo se respetan.
+    /// Solo se borran clips terminados (los descartados por la IA y los borrados por falta de espacio no tienen
+    /// archivo remoto); los que están grabando, analizándose o subiendo se respetan.
     /// </summary>
     public static Expression<Func<Recording, bool>> ExpiredBefore(DateTimeOffset cutoff) =>
         r => r.StartedAt < cutoff
-            && (r.Status == RecordingStatus.Uploaded || r.Status == RecordingStatus.Failed || r.Status == RecordingStatus.Discarded);
+            && (r.Status == RecordingStatus.Uploaded || r.Status == RecordingStatus.Failed
+                || r.Status == RecordingStatus.Discarded || r.Status == RecordingStatus.Evicted);
 
     /// <summary>
     /// Objeto de R2 vencido, tenga o no fila en la base. Se mide por la hora de subida (siempre posterior a

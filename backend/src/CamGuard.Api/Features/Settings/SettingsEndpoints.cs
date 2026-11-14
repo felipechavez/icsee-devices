@@ -10,7 +10,8 @@ public record SettingsDto(
     double DetectionMinConfidence = 0.5,
     bool HealthAlertsEnabled = true,
     int LowBatteryPercent = 20,
-    int SilentCameraHours = 48);
+    int SilentCameraHours = 48,
+    int LocalMaxGb = 5);
 
 public static class GetSettings
 {
@@ -22,7 +23,7 @@ public static class GetSettings
                 {
                     var s = await db.GetSettingsAsync(ct);
                     return new SettingsDto(s.MaxClipSeconds, s.CooldownSeconds, s.RetentionDays, s.DetectionMinConfidence,
-                        s.HealthAlertsEnabled, s.LowBatteryPercent, s.SilentCameraHours);
+                        s.HealthAlertsEnabled, s.LowBatteryPercent, s.SilentCameraHours, s.LocalMaxGb);
                 })
                 .WithTags("Settings");
         }
@@ -41,6 +42,8 @@ public static class UpdateSettings
     public const int MaxLowBatteryPercent = 50;
     public const int MinSilentCameraHours = 6;
     public const int MaxSilentCameraHours = 336;
+    public const int MinLocalMaxGb = 1;
+    public const int MaxLocalMaxGb = 500;
 
     public static Dictionary<string, string[]> Validate(SettingsDto r)
     {
@@ -57,6 +60,8 @@ public static class UpdateSettings
             errors[nameof(r.LowBatteryPercent)] = [$"Debe estar entre {MinLowBatteryPercent} % y {MaxLowBatteryPercent} %."];
         if (r.SilentCameraHours is < MinSilentCameraHours or > MaxSilentCameraHours)
             errors[nameof(r.SilentCameraHours)] = [$"Debe estar entre {MinSilentCameraHours} y {MaxSilentCameraHours} horas."];
+        if (r.LocalMaxGb is < MinLocalMaxGb or > MaxLocalMaxGb)
+            errors[nameof(r.LocalMaxGb)] = [$"Debe estar entre {MinLocalMaxGb} y {MaxLocalMaxGb} GB."];
         return errors;
     }
 
@@ -78,6 +83,7 @@ public static class UpdateSettings
                     s.HealthAlertsEnabled = request.HealthAlertsEnabled;
                     s.LowBatteryPercent = request.LowBatteryPercent;
                     s.SilentCameraHours = request.SilentCameraHours;
+                    s.LocalMaxGb = request.LocalMaxGb;
                     await db.SaveChangesAsync(ct);
                     return Results.Ok(request);
                 })

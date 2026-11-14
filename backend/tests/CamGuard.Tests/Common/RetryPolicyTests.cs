@@ -1,6 +1,6 @@
-using CamGuard.Api.Features.Upload;
+using CamGuard.Api.Common;
 
-namespace CamGuard.Tests.Features.Upload;
+namespace CamGuard.Tests.Common;
 
 public class RetryPolicyTests
 {

@@ -38,6 +38,11 @@ namespace CamGuard.Api.Common.Data.Migrations
                         .HasColumnType("boolean")
                         .HasDefaultValue(true);
 
+                    b.Property<int>("LocalMaxGb")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(5);
+
                     b.Property<int>("LowBatteryPercent")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
@@ -65,6 +70,7 @@ namespace CamGuard.Api.Common.Data.Migrations
                             CooldownSeconds = 10,
                             DetectionMinConfidence = 0.5,
                             HealthAlertsEnabled = true,
+                            LocalMaxGb = 5,
                             LowBatteryPercent = 20,
                             MaxClipSeconds = 60,
                             RetentionDays = 30,

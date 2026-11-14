@@ -13,4 +13,15 @@ public class UploadServiceTests
     {
         await Assert.That(UploadService.NotificationTitle(detection, "Entrada")).IsEqualTo(expected);
     }
+
+    [Test]
+    [Arguments(-1, false)]
+    [Arguments(0, true)]
+    [Arguments(30, true)]
+    public async Task ShouldProcess_WaitsForPause(int secondsAfterPause, bool expected)
+    {
+        var pausedUntil = new DateTimeOffset(2026, 11, 1, 12, 0, 0, TimeSpan.Zero);
+
+        await Assert.That(UploadService.ShouldProcess(pausedUntil.AddSeconds(secondsAfterPause), pausedUntil)).IsEqualTo(expected);
+    }
 }

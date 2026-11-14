@@ -73,7 +73,7 @@ public class DetectionService(
             ? null
             : await AnalyzeAsync(clipPath, camera, settings.DetectionMinConfidence, ct);
         var hasPriorityEvent = camera.DetectionMode == DetectionMode.Filter && verdict is { Found: false }
-            && await HasPriorityEventAsync(db, recording, ct);
+            && await PriorityEvents.HasPriorityEventAsync(db, recording, ct);
         var decision = DetectionPolicy.Decide(camera.DetectionMode, verdict, hasPriorityEvent);
 
         recording.Detection = verdict?.Label;
@@ -139,16 +139,6 @@ public class DetectionService(
             logger.LogWarning(ex, "Falló el análisis del clip de {Camera}: se sube sin analizar", camera.Name);
             return null;
         }
-    }
-
-    /// <summary>Timbre o alarma Tuya de la cámara durante la grabación (o justo antes: el evento la despertó).</summary>
-    private static Task<bool> HasPriorityEventAsync(AppDbContext db, Recording recording, CancellationToken ct)
-    {
-        var from = recording.StartedAt - DetectionPolicy.PriorityEventLookback;
-        var to = recording.EndedAt ?? recording.StartedAt;
-        return db.CameraEvents.AnyAsync(e => e.CameraId == recording.CameraId
-            && (e.Type == CameraEventType.Doorbell || e.Type == CameraEventType.Alarm || e.Type == CameraEventType.LockEvent)
-            && e.OccurredAt >= from && e.OccurredAt <= to, ct);
     }
 
     /// <summary>Grabaciones que quedaron en Analyzing (reinicio, corte de luz) se vuelven a analizar.</summary>
