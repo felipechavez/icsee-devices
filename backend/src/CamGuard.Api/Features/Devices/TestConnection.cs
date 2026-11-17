@@ -4,17 +4,22 @@ using System.Text.Json.Nodes;
 using CamGuard.Api.Common.Data;
 using CamGuard.Api.Common.Endpoints;
 using CamGuard.Api.Common.Security;
+using CamGuard.Api.Features.Onvif;
 using CamGuard.Api.Features.Tuya;
 
 namespace CamGuard.Api.Features.Devices;
 
-/// <summary>"Probar conexión" desde Configuración: inicio de sesión DVRIP con los datos del formulario.</summary>
+/// <summary>
+/// "Probar conexión" desde Configuración con los datos del formulario: inicio de sesión DVRIP (iCSee),
+/// consulta a la Tuya Cloud API (Tuya) o lectura de modelo y perfiles de video (ONVIF).
+/// </summary>
 public static class TestConnection
 {
     /// <param name="CameraId">Si la contraseña viene vacía, se usa la guardada de esta cámara.</param>
     /// <param name="TuyaDeviceId">Solo para <see cref="CameraKind.Tuya"/>: se consulta por la Tuya Cloud API.</param>
+    /// <param name="OnvifPort">Solo para <see cref="CameraKind.Onvif"/>: puerto HTTP del servicio ONVIF.</param>
     public record Request(int? CameraId, string Ip, int DvripPort, string Username, string? Password,
-        CameraKind Kind = CameraKind.Icsee, string? TuyaDeviceId = null);
+        CameraKind Kind = CameraKind.Icsee, string? TuyaDeviceId = null, int OnvifPort = 80);
 
     public record Response(bool Ok, string Message, string? Model);
 
@@ -29,7 +34,12 @@ public static class TestConnection
         }
         if (!IPAddress.TryParse(r.Ip, out _))
             errors[nameof(r.Ip)] = ["IP inválida."];
-        if (r.DvripPort is < 1 or > 65535)
+        if (r.Kind == CameraKind.Onvif)
+        {
+            if (r.OnvifPort is < 1 or > 65535)
+                errors[nameof(r.OnvifPort)] = ["Puerto fuera de rango."];
+        }
+        else if (r.DvripPort is < 1 or > 65535)
             errors[nameof(r.DvripPort)] = ["Puerto fuera de rango."];
         if (string.IsNullOrWhiteSpace(r.Username))
             errors[nameof(r.Username)] = ["El usuario es obligatorio."];
@@ -46,6 +56,7 @@ public static class TestConnection
                     CameraSecretProtector secrets,
                     DvripConnector connector,
                     TuyaApiClient tuya,
+                    OnvifClient onvif,
                     CancellationToken ct) =>
                 {
                     var errors = Validate(request);
@@ -60,6 +71,10 @@ public static class TestConnection
                         password = secrets.TryUnprotect((await db.Cameras.FindAsync([id], ct))?.PasswordProtected);
                     if (string.IsNullOrEmpty(password))
                         return Results.Ok(new Response(false, "Escribe la contraseña de la cámara.", null));
+
+                    if (request.Kind == CameraKind.Onvif)
+                        return Results.Ok(await TestOnvifAsync(onvif, request.Ip.Trim(), request.OnvifPort,
+                            new OnvifCredentials(request.Username.Trim(), password), ct));
 
                     try
                     {
@@ -84,6 +99,28 @@ public static class TestConnection
                     }
                 })
                 .WithTags("Cameras");
+        }
+
+        /// <summary>Hora (sin clave), modelo y perfiles de video: así se prueba también la contraseña.</summary>
+        private static async Task<Response> TestOnvifAsync(OnvifClient onvif, string ip, int port, OnvifCredentials credentials,
+            CancellationToken ct)
+        {
+            try
+            {
+                var session = await onvif.ConnectAsync(ip, port, credentials, ct);
+                var info = await onvif.GetDeviceInformationAsync(session, ct);
+                var capabilities = await onvif.GetCapabilitiesAsync(session, ct);
+                var streams = await onvif.DiscoverStreamsAsync(session, capabilities, ct);
+                var video = streams.Sub == streams.Main
+                    ? streams.Main.Describe()
+                    : $"{streams.Main.Describe()} + {streams.Sub.Describe()}";
+                var events = capabilities.EventsXAddr is null ? " · sin eventos de movimiento" : "";
+                return new Response(true, $"Conexión OK · {video}{events}", info.DisplayModel);
+            }
+            catch (OnvifException ex)
+            {
+                return new Response(false, ex.Message, null);
+            }
         }
 
         private static async Task<Response> TestTuyaAsync(TuyaApiClient tuya, string deviceId, CancellationToken ct)

@@ -3,6 +3,7 @@ using CamGuard.Api.Common.Endpoints;
 using CamGuard.Api.Common.Storage;
 using CamGuard.Api.Features.Capture;
 using CamGuard.Api.Features.Monitoring;
+using CamGuard.Api.Features.Onvif;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -39,7 +40,9 @@ public static class ListCameras
         string? TuyaTriggerDeviceIds = null,
         DetectionMode DetectionMode = DetectionMode.Tag,
         bool DetectPeople = true,
-        bool DetectAnimals = true);
+        bool DetectAnimals = true,
+        int OnvifPort = 80,
+        bool? Connected = null);
 
     /// <summary>Último clip y miniatura de cada cámara, más los clips del día pedido.</summary>
     public record RecordingStats(DateTimeOffset? LastRecordingAt, string? LastThumbnailUrl, int? ClipsToday)
@@ -47,14 +50,17 @@ public static class ListCameras
         public static readonly RecordingStats None = new(null, null, null);
     }
 
-    public static CameraResponse ToResponse(Camera c, CameraState state, bool isRecording = false, RecordingStats? stats = null)
+    /// <param name="onvif">Conexión de eventos de una ONVIF (Features/Onvif); null = aún no se intentó o no es ONVIF.</param>
+    public static CameraResponse ToResponse(Camera c, CameraState state, bool isRecording = false, RecordingStats? stats = null,
+        OnvifConnection? onvif = null)
     {
         stats ??= RecordingStats.None;
         return new(c.Id, c.Name, c.Ip, c.DvripPort, c.Go2rtcStream, c.Enabled, c.Username,
             !string.IsNullOrEmpty(c.PasswordProtected), state.IsAwake, state.LastChangedAt,
             c.Model, c.MotionSensitivity, c.SensitivityPending, c.BatteryPercent, c.StorageUsedBytes, c.StorageTotalBytes,
             c.DeviceInfoAt, isRecording, stats.LastRecordingAt, stats.LastThumbnailUrl, stats.ClipsToday,
-            c.Kind, c.TuyaDeviceId, c.Rotation, c.TuyaTriggerDeviceIds, c.DetectionMode, c.DetectPeople, c.DetectAnimals);
+            c.Kind, c.TuyaDeviceId, c.Rotation, c.TuyaTriggerDeviceIds, c.DetectionMode, c.DetectPeople, c.DetectAnimals,
+            c.OnvifPort, c.Kind == CameraKind.Onvif ? onvif?.Connected : null);
     }
 
     public class Endpoint : IEndpoint
@@ -68,6 +74,7 @@ public static class ListCameras
                     AppDbContext db,
                     CameraStateStore states,
                     ActivationGate gate,
+                    OnvifConnectionState onvif,
                     IVideoStorage storage,
                     IOptions<StorageOptions> storageOptions,
                     CancellationToken ct) =>
@@ -109,7 +116,7 @@ public static class ListCameras
                             l?.LastAt,
                             l?.Thumb is { } key ? storage.GetPresignedUrl(key, ttl) : null,
                             today is null ? null : today.GetValueOrDefault(c.Id));
-                        return ToResponse(c, states.Get(c.Id), gate.IsRecording(c.Id), stats);
+                        return ToResponse(c, states.Get(c.Id), gate.IsRecording(c.Id), stats, onvif.Get(c.Id));
                     });
                 })
                 .WithTags("Cameras");

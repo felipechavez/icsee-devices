@@ -65,6 +65,31 @@ public class HealthEvaluatorTests
     }
 
     [Test]
+    public async Task Evaluate_OnvifQuietForDays_NotSilent()
+    {
+        var camera = Camera(battery: null, lastAwake: Now.AddDays(-5)) with { Kind = CameraKind.Onvif, Connected = true, ConnectionSince = Now.AddDays(-5) };
+
+        await Assert.That(Keys(Facts(camera))).IsEmpty();
+    }
+
+    [Test]
+    public async Task Evaluate_OnvifOfflinePastGrace_Opens()
+    {
+        var camera = Camera(battery: null) with { Kind = CameraKind.Onvif, Connected = false, ConnectionSince = Now.AddMinutes(-11) };
+
+        await Assert.That(Keys(Facts(camera))).IsEquivalentTo(["offline:1"]);
+        await Assert.That(Keys(Facts(camera with { ConnectionSince = Now.AddMinutes(-5) }))).IsEmpty();
+    }
+
+    [Test]
+    public async Task Evaluate_OnvifNotTriedYet_NoIssue()
+    {
+        var camera = Camera(battery: null) with { Kind = CameraKind.Onvif, Connected = null, ConnectionSince = null };
+
+        await Assert.That(Keys(Facts(camera))).IsEmpty();
+    }
+
+    [Test]
     public async Task Evaluate_DisabledCamera_Ignored()
     {
         await Assert.That(Keys(Facts(Camera(battery: 5, enabled: false, lastAwake: Now.AddDays(-5))))).IsEmpty();

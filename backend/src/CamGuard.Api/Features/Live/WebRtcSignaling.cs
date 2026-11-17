@@ -3,6 +3,7 @@ using CamGuard.Api.Common;
 using CamGuard.Api.Common.Data;
 using CamGuard.Api.Common.Endpoints;
 using CamGuard.Api.Features.Monitoring;
+using CamGuard.Api.Features.Streams;
 using CamGuard.Api.Features.Tuya;
 using Microsoft.Extensions.Options;
 
@@ -59,7 +60,9 @@ public static class WebRtcSignaling
                     if (camera is null)
                         return Results.NotFound();
                     var tuya = camera.Kind == CameraKind.Tuya;
-                    if (!tuya && !states.Get(cameraId).IsAwake)
+                    // Una ONVIF está siempre encendida (enchufada): se puede ver sin movimiento.
+                    var alwaysOn = camera.Kind == CameraKind.Onvif;
+                    if (!tuya && !alwaysOn && !states.Get(cameraId).IsAwake)
                         return Results.Problem("La cámara está en reposo.", statusCode: StatusCodes.Status503ServiceUnavailable);
 
                     if (request.ContentLength is > MaxOfferBytes)
@@ -83,7 +86,8 @@ public static class WebRtcSignaling
                         }
                     }
 
-                    var answer = await go2rtc.ExchangeSdpAsync(camera.Go2rtcStream, offer, ct);
+                    // En las ONVIF, el substream H.264: el principal puede ser H.265, que WebRTC no siempre admite.
+                    var answer = await go2rtc.ExchangeSdpAsync(Go2rtcStreamNames.Live(camera), offer, ct);
                     return answer is null
                         ? Results.Problem("go2rtc no pudo conectar con la cámara.", statusCode: StatusCodes.Status502BadGateway)
                         : Results.Text(answer, "application/sdp");

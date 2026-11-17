@@ -29,6 +29,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(c => c.TuyaDeviceId).HasMaxLength(64);
             e.Property(c => c.TuyaTriggerDeviceIds).HasMaxLength(400);
             e.Property(c => c.DetectionMode).HasConversion<string>().HasMaxLength(20);
+            e.Property(c => c.OnvifPort).HasDefaultValue(80).HasSentinel(80);
+            e.Property(c => c.OnvifMainStreamUri).HasMaxLength(500);
+            e.Property(c => c.OnvifSubStreamUri).HasMaxLength(500);
+            e.Property(c => c.OnvifMainCodec).HasMaxLength(20);
             e.HasIndex(c => c.Go2rtcStream).IsUnique();
             e.HasIndex(c => c.TuyaDeviceId).IsUnique();
         });

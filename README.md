@@ -1,7 +1,7 @@
 # CamGuard
 
 Graba automáticamente cada activación por movimiento de una o varias cámaras iCSee a batería,
-sube los clips a un bucket S3-compatible (Cloudflare R2) y permite verlos, junto con
+dispositivos Tuya con cámara y cámaras ONVIF enchufadas (p. ej. Imou), sube los clips a un bucket S3-compatible (Cloudflare R2) y permite verlos, junto con
 el video en vivo, desde una web en React. Reemplaza la suscripción de la app iCSee.
 
 Diseño y decisiones: [.claude/plans/](.claude/plans/) (un `plan.md` por sprint).
@@ -60,6 +60,28 @@ vuelve a escribirlas en Configuración.
 
 Una cámara con grabaciones no se puede eliminar (sus clips quedarían huérfanos en R2):
 deshabilítala para dejar de monitorearla y conservar el historial.
+
+### Cámaras ONVIF (Imou, Dahua…)
+
+Una cámara enchufada con ONVIF, como la **Imou Cue 2**, se agrega con el tipo **ONVIF** en
+Configuración:
+
+- **IP**: la de la cámara. Resérvala en el router (DHCP estático), porque si cambia, CamGuard la pierde.
+  Las Dahua/Imou responden también en `192.168.1.108`, la IP de fábrica, pero conviene usar la que asignó el router.
+- **Puerto ONVIF**: 80.
+- **Usuario**: `admin`.
+- **Contraseña**: en Imou es el código de seguridad (*Safety Code*) de la etiqueta. Varios
+  intentos fallidos bloquean la cuenta de la cámara por un rato.
+- **Probar conexión** muestra el modelo y los streams; por ejemplo, "H.265 1920×1080 + H.264 640×480".
+
+La cámara avisa el movimiento por ONVIF y CamGuard graba el stream principal (H.265, sin
+recodificar) mientras dura, más 10 s (`Onvif:AsleepDelaySeconds`). El vivo usa el substream H.264 y se
+puede abrir en cualquier momento. La sensibilidad se ajusta en la app del fabricante, y la detección de
+movimiento debe estar activada ahí. Si alguien tapa o mueve la cámara, llega un aviso por ntfy.
+En Estado, una cámara ONVIF se da por caída si pierde la conexión más de `Health:ServiceGraceMinutes`.
+
+Los clips en H.265 se reproducen en Chrome, Edge, Safari, Android e iPhone, pero **no en Firefox**.
+Para revisar qué expone una cámara nueva: `poc/imou/probe-device.ps1` y `poc/imou/onvif-events.ps1`.
 
 ### Acceso remoto
 

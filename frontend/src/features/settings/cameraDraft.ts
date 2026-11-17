@@ -23,6 +23,7 @@ export function toDraft(camera: Camera): CameraDraft {
     detectionMode: camera.detectionMode,
     detectPeople: camera.detectPeople,
     detectAnimals: camera.detectAnimals,
+    onvifPort: camera.onvifPort,
     streamEdited: true,
   }
 }
@@ -44,6 +45,7 @@ export const emptyDraft: CameraDraft = {
   detectionMode: 'Tag',
   detectPeople: true,
   detectAnimals: true,
+  onvifPort: 80,
   streamEdited: false,
 }
 

@@ -1,13 +1,15 @@
 using System.Net;
 using CamGuard.Api.Common.Data;
 using CamGuard.Api.Common.Security;
+using CamGuard.Api.Features.Streams;
 using Microsoft.EntityFrameworkCore;
 
 namespace CamGuard.Api.Features.Cameras;
 
 /// <summary>Datos editables de una cámara, compartidos por alta y edición.</summary>
-/// <param name="Password">Obligatoria al crear una iCSee; al editar, vacía o null conserva la actual.</param>
+/// <param name="Password">Obligatoria al crear una iCSee u ONVIF; al editar, vacía o null conserva la actual.</param>
 /// <param name="Kind">Solo se elige en el alta; al editar debe coincidir con el guardado.</param>
+/// <param name="OnvifPort">Puerto HTTP del servicio ONVIF (solo ONVIF).</param>
 public record CameraInput(
     string Name,
     string Ip,
@@ -24,7 +26,8 @@ public record CameraInput(
     string? TuyaTriggerDeviceIds = null,
     DetectionMode DetectionMode = DetectionMode.Tag,
     bool DetectPeople = true,
-    bool DetectAnimals = true)
+    bool DetectAnimals = true,
+    int OnvifPort = 80)
 {
     public const int MaxPasswordLength = 128;
     public const int MaxTriggerDevices = 10;
@@ -36,7 +39,8 @@ public record CameraInput(
         var errors = new Dictionary<string, string[]>();
         if (string.IsNullOrWhiteSpace(r.Name) || r.Name.Length > 100)
             errors[nameof(r.Name)] = ["El nombre es obligatorio (máx. 100 caracteres)."];
-        if (string.IsNullOrWhiteSpace(r.Go2rtcStream) || r.Go2rtcStream.Length > 100
+        // Una ONVIF usa también "{stream}_sub" (vivo): se reserva espacio para el sufijo.
+        if (string.IsNullOrWhiteSpace(r.Go2rtcStream) || r.Go2rtcStream.Length > 100 - Go2rtcStreamNames.LiveSuffix.Length
             || !r.Go2rtcStream.All(ch => char.IsAsciiLetterOrDigit(ch) || ch is '_' or '-'))
             errors[nameof(r.Go2rtcStream)] = ["El stream solo admite letras, números, '_' y '-'."];
         if (r.Model?.Length > 100)
@@ -52,6 +56,12 @@ public record CameraInput(
         {
             case CameraKind.Icsee:
                 ValidateIcsee(r, isNew, errors);
+                break;
+            case CameraKind.Onvif:
+                ValidateIp(r, errors);
+                if (r.OnvifPort is < 1 or > 65535)
+                    errors[nameof(r.OnvifPort)] = ["Puerto fuera de rango."];
+                ValidateCredentials(r, isNew, errors);
                 break;
             case CameraKind.Tuya:
                 // Sin IP ni credenciales: todo pasa por la Tuya Cloud API con las claves del proyecto.
@@ -75,18 +85,28 @@ public record CameraInput(
 
     private static void ValidateIcsee(CameraInput r, bool isNew, Dictionary<string, string[]> errors)
     {
-        if (!IPAddress.TryParse(r.Ip, out _))
-            errors[nameof(r.Ip)] = ["IP inválida."];
+        ValidateIp(r, errors);
         if (r.DvripPort is < 1 or > 65535)
             errors[nameof(r.DvripPort)] = ["Puerto fuera de rango."];
+        ValidateCredentials(r, isNew, errors);
+        if (!Enum.IsDefined(r.MotionSensitivity))
+            errors[nameof(r.MotionSensitivity)] = ["Sensibilidad inválida."];
+    }
+
+    private static void ValidateIp(CameraInput r, Dictionary<string, string[]> errors)
+    {
+        if (!IPAddress.TryParse(r.Ip, out _))
+            errors[nameof(r.Ip)] = ["IP inválida."];
+    }
+
+    private static void ValidateCredentials(CameraInput r, bool isNew, Dictionary<string, string[]> errors)
+    {
         if (string.IsNullOrWhiteSpace(r.Username) || r.Username.Length > 64)
             errors[nameof(r.Username)] = ["El usuario es obligatorio (máx. 64 caracteres)."];
         if (isNew && string.IsNullOrEmpty(r.Password))
             errors[nameof(r.Password)] = ["La contraseña es obligatoria."];
         else if (r.Password?.Length > MaxPasswordLength)
             errors[nameof(r.Password)] = [$"La contraseña admite máx. {MaxPasswordLength} caracteres."];
-        if (!Enum.IsDefined(r.MotionSensitivity))
-            errors[nameof(r.MotionSensitivity)] = ["Sensibilidad inválida."];
     }
 
     /// <summary>Al editar no se puede cambiar el tipo: los datos de uno no sirven para el otro.</summary>
@@ -95,27 +115,47 @@ public record CameraInput(
             ? []
             : new() { [nameof(r.Kind)] = ["El tipo de cámara no se puede cambiar; elimínala y agrégala de nuevo."] };
 
-    /// <summary>Stream, IP+puerto (iCSee) y Device ID (Tuya) no se pueden repetir entre cámaras.</summary>
+    /// <summary>
+    /// Stream (incluido el "{stream}_sub" de las ONVIF), IP+puerto (iCSee, ONVIF) y Device ID (Tuya) no se
+    /// pueden repetir entre cámaras.
+    /// </summary>
     public async Task<Dictionary<string, string[]>> ValidateUniqueAsync(AppDbContext db, int? exceptId, CancellationToken ct)
     {
         var errors = new Dictionary<string, string[]>();
         var stream = Go2rtcStream.Trim();
         var others = db.Cameras.AsNoTracking().Where(c => exceptId == null || c.Id != exceptId);
 
-        if (await others.AnyAsync(c => c.Go2rtcStream == stream, ct))
+        var suffix = Go2rtcStreamNames.LiveSuffix;
+        var liveOfOther = stream.EndsWith(suffix, StringComparison.Ordinal) ? stream[..^suffix.Length] : null;
+        var ownLive = stream + suffix;
+        if (await others.AnyAsync(c => c.Go2rtcStream == stream, ct)
+            || (liveOfOther is not null && await others.AnyAsync(c => c.Kind == CameraKind.Onvif && c.Go2rtcStream == liveOfOther, ct))
+            || (Kind == CameraKind.Onvif && await others.AnyAsync(c => c.Go2rtcStream == ownLive, ct)))
             errors[nameof(Go2rtcStream)] = ["Ya hay otra cámara con ese stream."];
 
-        if (Kind == CameraKind.Icsee)
+        switch (Kind)
         {
-            var ip = Ip.Trim();
-            if (await others.AnyAsync(c => c.Kind == CameraKind.Icsee && c.Ip == ip && c.DvripPort == DvripPort, ct))
-                errors[nameof(Ip)] = ["Ya hay otra cámara con esa IP y puerto."];
-        }
-        else
-        {
-            var deviceId = TuyaDeviceId!.Trim();
-            if (await others.AnyAsync(c => c.TuyaDeviceId == deviceId, ct))
-                errors[nameof(TuyaDeviceId)] = ["Ya hay otra cámara con ese Device ID."];
+            case CameraKind.Icsee:
+            {
+                var ip = Ip.Trim();
+                if (await others.AnyAsync(c => c.Kind == CameraKind.Icsee && c.Ip == ip && c.DvripPort == DvripPort, ct))
+                    errors[nameof(Ip)] = ["Ya hay otra cámara con esa IP y puerto."];
+                break;
+            }
+            case CameraKind.Onvif:
+            {
+                var ip = Ip.Trim();
+                if (await others.AnyAsync(c => c.Kind == CameraKind.Onvif && c.Ip == ip && c.OnvifPort == OnvifPort, ct))
+                    errors[nameof(Ip)] = ["Ya hay otra cámara con esa IP y puerto."];
+                break;
+            }
+            default:
+            {
+                var deviceId = TuyaDeviceId!.Trim();
+                if (await others.AnyAsync(c => c.TuyaDeviceId == deviceId, ct))
+                    errors[nameof(TuyaDeviceId)] = ["Ya hay otra cámara con ese Device ID."];
+                break;
+            }
         }
 
         return errors;
@@ -144,11 +184,28 @@ public record CameraInput(
 
         camera.TuyaDeviceId = null;
         camera.TuyaTriggerDeviceIds = null;
-        camera.Ip = Ip.Trim();
-        camera.DvripPort = DvripPort;
+        var ip = Ip.Trim();
         camera.Username = Username.Trim();
         if (!string.IsNullOrEmpty(Password))
             camera.PasswordProtected = secrets.Protect(Password);
+
+        if (Kind == CameraKind.Onvif)
+        {
+            // Otra cámara u otro puerto: las URIs de video descubiertas ya no sirven; Features/Onvif las vuelve a leer.
+            if (camera.Ip != ip || camera.OnvifPort != OnvifPort)
+            {
+                camera.OnvifMainStreamUri = null;
+                camera.OnvifSubStreamUri = null;
+                camera.OnvifMainCodec = null;
+            }
+            camera.Ip = ip;
+            camera.OnvifPort = OnvifPort;
+            // La sensibilidad se ajusta en la app del fabricante.
+            return;
+        }
+
+        camera.Ip = ip;
+        camera.DvripPort = DvripPort;
         // Solo se escribe en la cámara si cambió: así no se pisa lo configurado desde la app iCSee.
         if (camera.MotionSensitivity != MotionSensitivity)
         {

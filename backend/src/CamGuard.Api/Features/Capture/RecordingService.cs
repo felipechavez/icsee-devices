@@ -117,6 +117,8 @@ public class RecordingService(
         // FFmpeg da el stream por cortado tras este tiempo sin datos; Tuya no manda nada hasta despertar.
         var readTimeout = camera.Kind == CameraKind.Tuya ? startupGrace : FfmpegRecorder.DefaultReadTimeout;
         var rotation = camera.Rotation;
+        // Solo se sabe en las ONVIF (Features/Onvif lee el SDP del stream principal).
+        var hevc = camera.Kind == CameraKind.Onvif && camera.OnvifMainCodec == "H265";
 
         _running[recording.Id] = Task.Run(async () =>
         {
@@ -124,7 +126,7 @@ public class RecordingService(
             {
                 // Sin el token del host: al apagar se cancela "stop" (ver ExecuteAsync) y FFmpeg
                 // cierra el MP4 limpiamente, así el clip no se pierde y queda en la cola de subida.
-                await RecordAsync(recording.Id, camera.Id, rtspUrl, maxDuration, rotation, startupGrace, readTimeout, stop.Token);
+                await RecordAsync(recording.Id, camera.Id, rtspUrl, maxDuration, rotation, startupGrace, readTimeout, hevc, stop.Token);
             }
             finally
             {
@@ -139,7 +141,7 @@ public class RecordingService(
     private (string Clip, string Thumbnail) LocalPaths(Guid recordingId) => ClipPaths.For(appOptions.Value.DataDirectory, recordingId);
 
     private async Task RecordAsync(Guid recordingId, int cameraId, string rtspUrl, TimeSpan maxDuration, int rotation, TimeSpan startupGrace,
-        TimeSpan readTimeout,
+        TimeSpan readTimeout, bool hevc,
         CancellationToken stop)
     {
         var (clipPath, thumbPath) = LocalPaths(recordingId);
@@ -149,7 +151,7 @@ public class RecordingService(
         RecordResult result;
         try
         {
-            result = await recorder.RecordAsync(rtspUrl, clipPath, maxDuration, rotation, startupGrace, readTimeout, stop, CancellationToken.None);
+            result = await recorder.RecordAsync(rtspUrl, clipPath, maxDuration, rotation, startupGrace, readTimeout, hevc, stop, CancellationToken.None);
         }
         catch (Exception ex)
         {

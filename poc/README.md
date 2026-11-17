@@ -83,3 +83,25 @@ Resultado con la IPC_GK7201V300_LPG-G3-WQ (firmware V5.03.R02, 2025-03-25):
 - Sin SD: `StorageInfo` responde con `TotalSpace` 0.
 - Detección: `Detect.MotionDetect` existe (`Level` 3). `SystemFunction` declara `SupportPirSensitive`,
   pero aún no se encontró la clave de la sensibilidad PIR (`Detect.PirDetect` → `Ret 607`).
+
+## 6. Imou Cue 2 (base Dahua, enchufada)
+
+Scripts en `poc/imou/` (respuestas crudas en `poc/imou/out/`, ignorado por git). Usuario `admin`,
+contraseña = código de seguridad de la etiqueta. Cuidado: varios intentos fallidos bloquean la cuenta.
+
+- `probe-device.ps1`: RTSP, CGI de Dahua y ONVIF.
+- `onvif-events.ps1`: suscripción PullPoint y eventos en vivo.
+
+Resultado (2026-11-16, IP 192.168.1.102 por DHCP; también responde en la 192.168.1.108 de fábrica):
+
+- RTSP :554 con Digest. `rtsp://admin:<código>@IP:554/cam/realmonitor?channel=1&subtype=0` → **H.265** 30 fps
+  + AAC 16 kHz; `subtype=1` → **H.264** + AAC 16 kHz.
+- CGI de Dahua (`/cgi-bin/*.cgi`): el puerto 80 acepta TCP pero no responde. No hay `eventManager`.
+- Puerto 37777 abierto (protocolo propio de Dahua), no usado.
+- ONVIF: sí (Device, Media, Events, Analytics, PTZ, Imaging), WS-Security `PasswordDigest`; reloj en UTC correcto.
+  Eventos con `WSPullPointSupport = true`. Tópicos: `VideoSource/MotionAlarm`, `RuleEngine/TamperDetector/Tamper`,
+  `VideoSource/GlobalSceneChange/ImagingService`, `Device/Trigger/DigitalInput`, `Media/ProfileChanged`,
+  `Media/ConfigurationChanged`.
+- `CreatePullPointSubscription` devuelve `http://IP/onvif/Subscription?Idx=N`. Al suscribirse llega el estado
+  inicial (`Initialized`, `State=false`); el movimiento llega como `Changed` `State=true` y luego `State=false`
+  (en la prueba: ~23 s después de suscribirse → `true`; `false` 35 s más tarde).

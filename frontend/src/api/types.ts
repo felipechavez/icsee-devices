@@ -6,8 +6,11 @@ export type DetectionMode = 'Off' | 'Tag' | 'Filter'
 
 export type MotionSensitivity = 'Low' | 'Medium' | 'High'
 
-/** iCSee: DVRIP en la LAN. Tuya: cerradura con cámara, todo por la nube de Tuya. */
-export type CameraKind = 'Icsee' | 'Tuya'
+/**
+ * iCSee: DVRIP en la LAN. Tuya: cámara, timbre o cerradura, todo por la nube de Tuya.
+ * Onvif: cámara enchufada en la LAN (p. ej. Imou), siempre encendida; avisa el movimiento por ONVIF.
+ */
+export type CameraKind = 'Icsee' | 'Tuya' | 'Onvif'
 
 /** Giro a la derecha en grados, para cámaras montadas de lado. */
 export type Rotation = 0 | 90 | 180 | 270
@@ -47,6 +50,10 @@ export interface Camera {
   detectionMode: DetectionMode
   detectPeople: boolean
   detectAnimals: boolean
+  /** Puerto HTTP del servicio ONVIF (solo ONVIF). */
+  onvifPort: number
+  /** Solo ONVIF: suscripción de eventos activa. Null = no aplica o aún no se intentó. */
+  connected: boolean | null
 }
 
 /** Alta y edición. Al editar, una contraseña vacía conserva la actual. */
@@ -64,6 +71,7 @@ export type CameraInput = Pick<
   | 'detectionMode'
   | 'detectPeople'
   | 'detectAnimals'
+  | 'onvifPort'
 > & {
   model: string
   password: string
@@ -77,6 +85,7 @@ export interface TestConnectionRequest {
   tuyaDeviceId?: string
   ip: string
   dvripPort: number
+  onvifPort?: number
   username: string
   password?: string
 }
@@ -147,7 +156,7 @@ export interface Settings {
 export type HealthSeverity = 'Warning' | 'Critical'
 
 export interface HealthIssue {
-  /** "battery:{id}", "silent:{id}", "service:{nombre}", "queue", "disk", "backup" o "backup-verify". */
+  /** "battery:{id}", "silent:{id}", "offline:{id}", "service:{nombre}", "queue", "disk", "backup" o "backup-verify". */
   key: string
   severity: HealthSeverity
   title: string
@@ -175,6 +184,11 @@ export interface CameraHealth {
   lastAwakeAt: string | null
   /** Promedio de los últimos 7 días. */
   activationsPerDay: number
+  /** Solo ONVIF: suscripción de eventos activa; null = no aplica o aún no se intentó. */
+  connected: boolean | null
+  /** Solo ONVIF: desde cuándo está conectada o desconectada. */
+  connectionSince: string | null
+  connectionError: string | null
 }
 
 /** ntfy solo se muestra: no abre problema (el aviso llegaría atrasado). */

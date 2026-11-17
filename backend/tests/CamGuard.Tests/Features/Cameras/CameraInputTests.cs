@@ -238,4 +238,75 @@ public class CameraInputTests
         await Assert.That(camera.TuyaDeviceId).IsEqualTo("eb8d8e837c0a688a86f1kb");
         await Assert.That(camera.Rotation).IsEqualTo(90);
     }
+
+    private static CameraInput ValidOnvif() =>
+        new("Living", "192.168.1.102", 0, "imou", true, "admin", "codigo", Kind: CameraKind.Onvif, OnvifPort: 80);
+
+    [Test]
+    public async Task Validate_Onvif_IgnoresDvripPort()
+    {
+        await Assert.That(CameraInput.Validate(ValidOnvif(), isNew: true)).IsEmpty();
+    }
+
+    [Test]
+    [Arguments(0)]
+    [Arguments(70000)]
+    public async Task Validate_OnvifPortOutOfRange_Rejected(int port)
+    {
+        var errors = CameraInput.Validate(ValidOnvif() with { OnvifPort = port }, isNew: false);
+
+        await Assert.That(errors.Keys).Contains(nameof(CameraInput.OnvifPort));
+    }
+
+    [Test]
+    public async Task Validate_OnvifNewWithoutPassword_Rejected()
+    {
+        var errors = CameraInput.Validate(ValidOnvif() with { Password = null }, isNew: true);
+
+        await Assert.That(errors.Keys).Contains(nameof(CameraInput.Password));
+    }
+
+    [Test]
+    public async Task Validate_StreamWithoutRoomForLiveSuffix_Rejected()
+    {
+        var errors = CameraInput.Validate(ValidOnvif() with { Go2rtcStream = new string('a', 97) }, isNew: false);
+
+        await Assert.That(errors.Keys).Contains(nameof(CameraInput.Go2rtcStream));
+    }
+
+    [Test]
+    public async Task ApplyTo_OnvifNewAddress_ClearsDiscoveredStreams()
+    {
+        var camera = OnvifCamera();
+
+        (ValidOnvif() with { Ip = "192.168.1.110", Password = null }).ApplyTo(camera, null!);
+
+        await Assert.That(camera.Ip).IsEqualTo("192.168.1.110");
+        await Assert.That(camera.OnvifMainStreamUri).IsNull();
+        await Assert.That(camera.OnvifMainCodec).IsNull();
+    }
+
+    [Test]
+    public async Task ApplyTo_OnvifSameAddress_KeepsStreamsAndSensitivity()
+    {
+        var camera = OnvifCamera();
+
+        (ValidOnvif() with { Password = null, MotionSensitivity = MotionSensitivity.High }).ApplyTo(camera, null!);
+
+        await Assert.That(camera.OnvifMainStreamUri).IsEqualTo("rtsp://192.168.1.102:554/main");
+        await Assert.That(camera.SensitivityPending).IsFalse();
+        await Assert.That(camera.Kind).IsEqualTo(CameraKind.Onvif);
+    }
+
+    private static Camera OnvifCamera() => new()
+    {
+        Name = "Living",
+        Ip = "192.168.1.102",
+        Go2rtcStream = "imou",
+        Kind = CameraKind.Onvif,
+        OnvifPort = 80,
+        OnvifMainStreamUri = "rtsp://192.168.1.102:554/main",
+        OnvifSubStreamUri = "rtsp://192.168.1.102:554/sub",
+        OnvifMainCodec = "H265"
+    };
 }

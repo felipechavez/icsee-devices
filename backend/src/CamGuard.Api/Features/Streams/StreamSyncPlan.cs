@@ -1,18 +1,42 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
+using CamGuard.Api.Common.Data;
 
 namespace CamGuard.Api.Features.Streams;
 
 public static class Go2rtcStreamSource
 {
     /// <summary>Origen DVRIP que go2rtc usa para abrir la cámara (calidad principal, canal 0).</summary>
-    public static string For(string ip, int port, string username, string password)
+    public static string For(string ip, int port, string username, string password) =>
+        $"dvrip://{Uri.EscapeDataString(username)}:{Uri.EscapeDataString(password)}@{Host(ip)}:{port}?channel=0&subtype=0";
+
+    /// <summary>
+    /// Origen RTSP de una cámara ONVIF: la URI descubierta con las credenciales escapadas y el host forzado a la IP
+    /// configurada (go2rtc nunca abre otro equipo). Null si la URI no es RTSP. Lleva la contraseña: no registrar.
+    /// </summary>
+    public static string? ForRtsp(string? uri, string ip, string username, string password)
     {
-        var host = IPAddress.TryParse(ip, out var address) && address.AddressFamily == AddressFamily.InterNetworkV6
-            ? $"[{ip}]"
-            : ip;
-        return $"dvrip://{Uri.EscapeDataString(username)}:{Uri.EscapeDataString(password)}@{host}:{port}?channel=0&subtype=0";
+        if (string.IsNullOrWhiteSpace(uri) || !Uri.TryCreate(uri, UriKind.Absolute, out var parsed)
+            || !parsed.Scheme.Equals("rtsp", StringComparison.OrdinalIgnoreCase))
+            return null;
+        var port = parsed.IsDefaultPort || parsed.Port <= 0 ? 554 : parsed.Port;
+        return $"rtsp://{Uri.EscapeDataString(username)}:{Uri.EscapeDataString(password)}@{Host(ip)}:{port.ToString(CultureInfo.InvariantCulture)}{parsed.PathAndQuery}";
     }
+
+    private static string Host(string ip) =>
+        IPAddress.TryParse(ip, out var address) && address.AddressFamily == AddressFamily.InterNetworkV6 ? $"[{ip}]" : ip;
+}
+
+/// <summary>Nombres de los streams de una cámara en go2rtc.</summary>
+public static class Go2rtcStreamNames
+{
+    /// <summary>Sufijo del stream de vivo de una ONVIF (substream H.264, que el navegador reproduce por WebRTC).</summary>
+    public const string LiveSuffix = "_sub";
+
+    /// <summary>Stream para el vivo: el substream en las ONVIF; en las demás, el mismo que se graba.</summary>
+    public static string Live(Camera camera) =>
+        camera.Kind == CameraKind.Onvif ? camera.Go2rtcStream + LiveSuffix : camera.Go2rtcStream;
 }
 
 public record StreamSyncPlan(IReadOnlyList<KeyValuePair<string, string>> ToPatch, IReadOnlyList<string> ToDelete)

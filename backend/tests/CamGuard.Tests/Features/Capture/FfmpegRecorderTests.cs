@@ -32,6 +32,24 @@ public class FfmpegRecorderTests
     }
 
     [Test]
+    public async Task RecordArguments_Hevc_TagsHvc1BeforeOutput()
+    {
+        var args = FfmpegRecorder.RecordArguments("rtsp://x/y", "out.mp4", TimeSpan.FromSeconds(10), hevc: true).ToList();
+
+        var index = args.IndexOf("-tag:v");
+        await Assert.That(index).IsGreaterThan(args.IndexOf("-i"));
+        await Assert.That(args[index + 1]).IsEqualTo("hvc1");
+    }
+
+    [Test]
+    public async Task RecordArguments_H264_NoVideoTag()
+    {
+        var args = FfmpegRecorder.RecordArguments("rtsp://x/y", "out.mp4", TimeSpan.FromSeconds(10));
+
+        await Assert.That(args).DoesNotContain("-tag:v");
+    }
+
+    [Test]
     public async Task RecordArguments_UsesTcpTransport()
     {
         var args = FfmpegRecorder.RecordArguments("rtsp://x/y", "out.mp4", TimeSpan.FromSeconds(10)).ToList();

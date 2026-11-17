@@ -51,15 +51,19 @@ export function LivePlayer({ camera, autoConnect = true, compact = false }: Prop
   const [attempt, setAttempt] = useState(0)
   const { visible, epoch } = usePageVisible()
   const tuya = camera.kind === 'Tuya'
+  // Una ONVIF está enchufada y siempre encendida: se puede ver en cualquier momento (substream H.264).
+  const alwaysOn = camera.kind === 'Onvif'
   // Vivo a demanda: en Tuya go2rtc pide el video a la nube y eso la despierta; una iCSee solo si ya despertó.
   const [onDemand, setOnDemand] = useState(false)
-  // "Detener" aplica solo a la activación actual: se identifica por la hora en que despertó.
+  // "Detener" aplica solo a la activación actual: se identifica por la hora en que despertó. En una ONVIF el
+  // movimiento no corta ni reinicia el vivo, así que hay una sola "activación".
   const [stoppedActivation, setStoppedActivation] = useState<string | null>(null)
-  const activation = camera.lastChangedAt ?? ''
-  const stopped = camera.isAwake && stoppedActivation === activation
+  const activation = alwaysOn ? 'always' : (camera.lastChangedAt ?? '')
+  const available = camera.isAwake || (alwaysOn && camera.enabled)
+  const stopped = available && stoppedActivation === activation
 
-  const demanded = onDemand && camera.enabled && (tuya || camera.isAwake)
-  const automatic = autoConnect && camera.isAwake && !stopped
+  const demanded = onDemand && camera.enabled && (tuya || available)
+  const automatic = autoConnect && available && !stopped
 
   // Cada intento de conexión tiene su clave; un resultado de un intento anterior se ignora.
   // A demanda no depende de la activación: si la cámara "despierta" mientras se mira, no se corta.
@@ -139,7 +143,7 @@ export function LivePlayer({ camera, autoConnect = true, compact = false }: Prop
 
   const stop = () => {
     setOnDemand(false)
-    if (camera.isAwake) setStoppedActivation(activation)
+    if (available) setStoppedActivation(activation)
   }
 
   // Se amplía el cuadro y no el <video>: conserva el giro por CSS y los botones (para "Minimizar").
@@ -209,7 +213,11 @@ export function LivePlayer({ camera, autoConnect = true, compact = false }: Prop
           ) : autoConnect && stopped ? (
             <>
               <strong>Transmisión detenida</strong>
-              <p>La cámara sigue despierta. Mirar en vivo la mantiene encendida y consume batería.</p>
+              <p>
+                {alwaysOn
+                  ? 'La cámara sigue grabando sola cuando detecta movimiento.'
+                  : 'La cámara sigue despierta. Mirar en vivo la mantiene encendida y consume batería.'}
+              </p>
               <button className="btn btn-primary btn-lg" onClick={() => setStoppedActivation(null)}>
                 Ver en vivo
               </button>
@@ -224,6 +232,15 @@ export function LivePlayer({ camera, autoConnect = true, compact = false }: Prop
               </p>
               <button className={compact ? 'btn btn-primary' : 'btn btn-primary btn-lg'} onClick={() => setOnDemand(true)}>
                 {compact ? 'Despertar y ver' : 'Ver en vivo'}
+              </button>
+            </>
+          ) : alwaysOn ? (
+            // Solo en el mosaico (sin autoConnect): está encendida, pero no se conecta sola.
+            <>
+              <strong>{camera.connected === false ? 'Sin conexión' : camera.isAwake ? 'Movimiento' : 'En espera'}</strong>
+              {!compact && <p>Graba sola al detectar movimiento.</p>}
+              <button className="btn btn-primary" onClick={() => setOnDemand(true)}>
+                Ver en vivo
               </button>
             </>
           ) : camera.isAwake ? (

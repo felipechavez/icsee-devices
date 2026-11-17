@@ -14,6 +14,7 @@ using CamGuard.Api.Features.Devices;
 using CamGuard.Api.Features.Health;
 using CamGuard.Api.Features.Live;
 using CamGuard.Api.Features.Monitoring;
+using CamGuard.Api.Features.Onvif;
 using CamGuard.Api.Features.Retention;
 using CamGuard.Api.Features.Streams;
 using CamGuard.Api.Features.Tuya;
@@ -55,6 +56,7 @@ builder.Services.AddLiveFeature(config);
 builder.Services.AddStreamsFeature(config);
 builder.Services.AddDevicesFeature(config);
 builder.Services.AddTuyaFeature(config);
+builder.Services.AddOnvifFeature(config);
 builder.Services.AddHealthFeature(config);
 builder.Services.AddHostedService<RetentionService>();
 

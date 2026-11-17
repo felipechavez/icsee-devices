@@ -9,10 +9,12 @@ public enum HealthSeverity
     Critical
 }
 
-/// <param name="Key">Clave estable: "battery:{id}", "silent:{id}", "service:{nombre}", "queue", "disk", "backup" o "backup-verify".</param>
+/// <param name="Key">Clave estable: "battery:{id}", "silent:{id}", "offline:{id}", "service:{nombre}", "queue", "disk", "backup" o "backup-verify".</param>
 /// <param name="Title">Sin números que cambien entre revisiones: se guarda para el "Resuelto: …".</param>
 public record HealthIssue(string Key, HealthSeverity Severity, string Title, string? Detail, int? CameraId, DateTimeOffset Since);
 
+/// <param name="Connected">Solo ONVIF: si la suscripción de eventos está activa; null = no aplica o aún no se intentó.</param>
+/// <param name="ConnectionSince">Solo ONVIF: desde cuándo está conectada o desconectada.</param>
 public record CameraHealth(
     int Id,
     string Name,
@@ -23,7 +25,10 @@ public record CameraHealth(
     double? BatteryDaysLeft,
     IReadOnlyList<BatteryPoint> BatteryHistory,
     DateTimeOffset? LastAwakeAt,
-    double ActivationsPerDay);
+    double ActivationsPerDay,
+    bool? Connected = null,
+    DateTimeOffset? ConnectionSince = null,
+    string? ConnectionError = null);
 
 /// <param name="Since">Desde cuándo está en el estado actual; en R2 sano, la última subida.</param>
 public record ServiceHealth(string Name, bool Ok, DateTimeOffset? Since, string? Detail);
@@ -87,6 +92,7 @@ public static class HealthEvaluator
 
     public static string BatteryKey(int cameraId) => $"battery:{cameraId}";
     public static string SilentKey(int cameraId) => $"silent:{cameraId}";
+    public static string OfflineKey(int cameraId) => $"offline:{cameraId}";
     public static string ServiceKey(string name) => $"service:{name}";
     public const string QueueKey = "queue";
     public const string DiskKey = "disk";
@@ -96,13 +102,18 @@ public static class HealthEvaluator
     public static IReadOnlyList<HealthIssue> Evaluate(HealthFacts facts, HealthThresholds t, IReadOnlySet<string> openKeys, DateTimeOffset now)
     {
         var issues = new List<HealthIssue>();
+        var grace = TimeSpan.FromMinutes(t.ServiceGraceMinutes);
         foreach (var camera in facts.Cameras.Where(c => c.Enabled))
         {
             if (Battery(camera, t, openKeys, now) is { } battery) issues.Add(battery);
-            if (Silent(camera, t, facts.MonitorStartedAt, now) is { } silent) issues.Add(silent);
+            // Una ONVIF está siempre encendida: un cuarto puede pasar días sin movimiento, así que se revisa su conexión.
+            if (camera.Kind == CameraKind.Onvif)
+            {
+                if (Offline(camera, grace, now) is { } offline) issues.Add(offline);
+            }
+            else if (Silent(camera, t, facts.MonitorStartedAt, now) is { } silent) issues.Add(silent);
         }
 
-        var grace = TimeSpan.FromMinutes(t.ServiceGraceMinutes);
         foreach (var s in facts.Services)
         {
             if (s.Ok || s.Name == Ntfy || s.Since is not { } since || now - since < grace) continue;
@@ -180,6 +191,15 @@ public static class HealthEvaluator
             ? $"No ha despertado desde que arrancó CamGuard, hace {Duration(now - last)}."
             : $"Despertó por última vez hace {Duration(now - last)}. Revisa la batería y el Wi-Fi.";
         return new HealthIssue(SilentKey(c.Id), HealthSeverity.Warning, $"{c.Name} no despierta", detail, c.Id, last);
+    }
+
+    private static HealthIssue? Offline(CameraHealth c, TimeSpan grace, DateTimeOffset now)
+    {
+        if (c.Connected is not false || c.ConnectionSince is not { } since || now - since < grace) return null;
+
+        var detail = $"No responde por ONVIF desde hace {Duration(now - since)}. Revisa que esté enchufada y en la red"
+                     + (string.IsNullOrWhiteSpace(c.ConnectionError) ? "." : $" ({c.ConnectionError}).");
+        return new HealthIssue(OfflineKey(c.Id), HealthSeverity.Warning, $"{c.Name} sin conexión", detail, c.Id, since);
     }
 
     private static string ServiceTitle(string name) => name switch

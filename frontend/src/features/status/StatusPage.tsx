@@ -70,6 +70,16 @@ function CameraCard({ camera, threshold, now }: { camera: CameraHealth; threshol
         </div>
       )}
       <div className="rows-compact">
+        {camera.kind === 'Onvif' && camera.enabled && (
+          <div className="kv">
+            <span>Conexión</span>
+            <span title={camera.connected === false ? (camera.connectionError ?? undefined) : undefined}>
+              {camera.connected == null
+                ? 'Conectando…'
+                : `${camera.connected ? 'Conectada' : 'Sin conexión'}${camera.connectionSince ? ` desde ${formatAgo(camera.connectionSince, now)}` : ''}`}
+            </span>
+          </div>
+        )}
         {camera.batteryPercent != null && (
           <div className="kv">
             <span>Pronóstico</span>

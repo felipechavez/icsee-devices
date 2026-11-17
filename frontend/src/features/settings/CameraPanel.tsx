@@ -14,7 +14,15 @@ const sensitivities: { value: MotionSensitivity; label: string }[] = [
 const kinds: { value: CameraKind; label: string }[] = [
   { value: 'Icsee', label: 'iCSee' },
   { value: 'Tuya', label: 'Tuya' },
+  { value: 'Onvif', label: 'ONVIF' },
 ]
+
+const kindHints: Record<CameraKind, string> = {
+  Icsee: 'Cámara iCSee a batería en tu red local: graba al detectar movimiento.',
+  Tuya: 'Cámara, timbre o cerradura con cámara de la app Tuya Smart: graba con el movimiento, el timbre o las alarmas.',
+  Onvif:
+    'Cámara enchufada en tu red local con ONVIF (Imou, Dahua y otras): avisa el movimiento y graba. Se puede ver en vivo en cualquier momento.',
+}
 
 const rotations: { value: `${Rotation}`; label: string }[] = [
   { value: '0', label: '0°' },
@@ -48,6 +56,7 @@ export function CameraPanel({ camera, draft, open, onToggle, onChange, error, on
   const pending = camera && (camera.sensitivityPending || draft.motionSensitivity !== camera.motionSensitivity)
   const id = `cam-${camera?.id ?? 'new'}`
   const tuya = draft.kind === 'Tuya'
+  const onvif = draft.kind === 'Onvif'
 
   const text = (key: 'name' | 'model' | 'ip' | 'username' | 'password' | 'go2rtcStream' | 'tuyaDeviceId' | 'tuyaTriggerDeviceIds') => ({
     value: draft[key],
@@ -87,11 +96,7 @@ export function CameraPanel({ camera, draft, open, onToggle, onChange, error, on
               <div className="cam-acc-wide">
                 <div>
                   <span className="row-label">Tipo</span>
-                  <span className="row-hint">
-                    {tuya
-                      ? 'Cámara, timbre o cerradura con cámara de la app Tuya Smart: graba con el movimiento, el timbre o las alarmas.'
-                      : 'Cámara iCSee a batería en tu red local: graba al detectar movimiento.'}
-                  </span>
+                  <span className="row-hint">{kindHints[draft.kind]}</span>
                 </div>
                 <Segmented className="seg-input" label="Tipo de cámara" value={draft.kind} options={kinds} onChange={(kind) => onChange({ kind })} />
               </div>
@@ -129,17 +134,32 @@ export function CameraPanel({ camera, draft, open, onToggle, onChange, error, on
                 <span>Dirección IP</span>
                 <input className="input mono" inputMode="decimal" placeholder="192.168.1.86" {...text('ip')} />
               </label>
-              <label className="field">
-                <span>Puerto DVRIP</span>
-                <input
-                  className="input mono"
-                  type="number"
-                  min={1}
-                  max={65535}
-                  value={Number.isNaN(draft.dvripPort) ? '' : draft.dvripPort}
-                  onChange={(e) => onChange({ dvripPort: e.target.valueAsNumber })}
-                />
-              </label>
+              {onvif ? (
+                <label className="field">
+                  <span>Puerto ONVIF</span>
+                  <input
+                    className="input mono"
+                    type="number"
+                    min={1}
+                    max={65535}
+                    value={Number.isNaN(draft.onvifPort) ? '' : draft.onvifPort}
+                    onChange={(e) => onChange({ onvifPort: e.target.valueAsNumber })}
+                  />
+                  <small>Casi siempre 80.</small>
+                </label>
+              ) : (
+                <label className="field">
+                  <span>Puerto DVRIP</span>
+                  <input
+                    className="input mono"
+                    type="number"
+                    min={1}
+                    max={65535}
+                    value={Number.isNaN(draft.dvripPort) ? '' : draft.dvripPort}
+                    onChange={(e) => onChange({ dvripPort: e.target.valueAsNumber })}
+                  />
+                </label>
+              )}
               <label className="field">
                 <span>Usuario</span>
                 <input className="input" maxLength={64} autoComplete="off" {...text('username')} />
@@ -155,7 +175,11 @@ export function CameraPanel({ camera, draft, open, onToggle, onChange, error, on
                   aria-invalid={camera && !camera.hasPassword && !draft.password ? true : undefined}
                   {...text('password')}
                 />
-                {camera && !camera.hasPassword && <small className="error">Falta: sin ella no se puede abrir la cámara.</small>}
+                {camera && !camera.hasPassword ? (
+                  <small className="error">Falta: sin ella no se puede abrir la cámara.</small>
+                ) : (
+                  onvif && <small>En Imou: el código de seguridad (Safety Code) de la etiqueta. Usuario admin.</small>
+                )}
               </label>
               </>
             )}
@@ -171,7 +195,8 @@ export function CameraPanel({ camera, draft, open, onToggle, onChange, error, on
               <small>Nombre interno; se registra solo.</small>
             </label>
 
-            {!tuya && (
+            {/* En Tuya y ONVIF la sensibilidad se ajusta en la app del fabricante. */}
+            {!tuya && !onvif && (
               <div className="cam-acc-wide">
                 <div>
                   <span className="row-label">Sensibilidad al movimiento</span>

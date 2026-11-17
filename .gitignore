@@ -414,4 +414,5 @@ poc/clips/
 poc/go2rtc.poc.yaml
 poc/tuya/tuya.poc.json
 poc/tuya/out/
+poc/imou/out/
 frontend/dist/

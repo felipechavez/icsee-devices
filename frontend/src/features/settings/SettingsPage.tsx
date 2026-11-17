@@ -224,6 +224,7 @@ export function SettingsPage() {
         tuyaDeviceId: d.kind === 'Tuya' ? d.tuyaDeviceId : undefined,
         ip: d.ip,
         dvripPort: d.dvripPort,
+        onvifPort: d.kind === 'Onvif' ? d.onvifPort : undefined,
         username: d.username,
         password: d.password || undefined,
       })

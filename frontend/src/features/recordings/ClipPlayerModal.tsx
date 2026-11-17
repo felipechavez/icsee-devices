@@ -22,6 +22,9 @@ export function ClipPlayerModal({ recordingId, recording, siblings = [], onNavig
   const playback = usePlaybackUrl(recordingId, !failed)
   const remove = useDeleteRecording()
   const [downloadError, setDownloadError] = useState<string | null>(null)
+  // URL que el navegador no pudo decodificar (p. ej. H.265 en Firefox); se compara con la actual, sin efectos.
+  const [unplayableUrl, setUnplayableUrl] = useState<string | null>(null)
+  const unplayable = !!playback.data && unplayableUrl === playback.data.url
 
   const nav = siblings.filter(openable)
   const index = nav.findIndex((r) => r.id === recordingId)
@@ -95,8 +98,27 @@ export function ClipPlayerModal({ recordingId, recording, siblings = [], onNavig
               <strong>No se pudo grabar este clip</strong>
               <span>La cámara detectó movimiento pero no respondió a tiempo. Revisa la señal Wi-Fi o la batería.</span>
             </div>
+          ) : unplayable ? (
+            <div className="player-failed">
+              <strong>Este navegador no puede reproducir el clip</strong>
+              <span>
+                Las cámaras ONVIF (p. ej. Imou) graban en H.265, que Firefox no reproduce. Ábrelo en Chrome, Edge o
+                Safari, o descárgalo.
+              </span>
+            </div>
           ) : playback.data ? (
-            <video key={playback.data.url} src={playback.data.url} controls autoPlay playsInline />
+            <video
+              key={playback.data.url}
+              src={playback.data.url}
+              controls
+              autoPlay
+              playsInline
+              onError={(e) => {
+                const code = e.currentTarget.error?.code
+                if (code === MediaError.MEDIA_ERR_DECODE || code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED)
+                  setUnplayableUrl(e.currentTarget.src)
+              }}
+            />
           ) : (
             <div className="player-loading">{playback.isLoading ? 'Cargando…' : ''}</div>
           )}

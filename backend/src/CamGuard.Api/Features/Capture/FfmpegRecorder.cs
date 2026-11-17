@@ -25,8 +25,9 @@ public interface IRecorder
     /// <param name="startupGrace">Margen sobre <paramref name="maxDuration"/> antes de forzar el cierre (espera del primer cuadro).</param>
     /// <param name="readTimeout">Tiempo sin datos tras el cual FFmpeg da el stream por cortado (también al arrancar).</param>
     /// <param name="stop">Al cancelarse, FFmpeg cierra el archivo limpiamente (cámara dormida).</param>
+    /// <param name="hevc">El video es H.265: el MP4 lleva la etiqueta hvc1 para que Safari/iOS lo reproduzcan.</param>
     Task<RecordResult> RecordAsync(string rtspUrl, string outputPath, TimeSpan maxDuration, int rotation, TimeSpan startupGrace,
-        TimeSpan readTimeout, CancellationToken stop, CancellationToken ct);
+        TimeSpan readTimeout, bool hevc, CancellationToken stop, CancellationToken ct);
 
     Task<bool> CreateThumbnailAsync(string videoPath, string thumbnailPath, CancellationToken ct);
 }
@@ -41,7 +42,7 @@ public class FfmpegRecorder(IOptions<CaptureOptions> options, ILogger<FfmpegReco
     public static readonly TimeSpan DefaultReadTimeout = TimeSpan.FromSeconds(10);
 
     public static IReadOnlyList<string> RecordArguments(string rtspUrl, string outputPath, TimeSpan maxDuration, int rotation = 0,
-        TimeSpan? readTimeout = null) =>
+        TimeSpan? readTimeout = null, bool hevc = false) =>
     [
         "-hide_banner", "-loglevel", "error",
         "-rtsp_transport", "tcp",
@@ -56,6 +57,9 @@ public class FfmpegRecorder(IOptions<CaptureOptions> options, ILogger<FfmpegReco
         "-t", maxDuration.TotalSeconds.ToString(CultureInfo.InvariantCulture),
         "-map", "0:v:0", "-map", "0:a:0?",
         "-c:v", "copy", "-c:a", "aac",
+        // FFmpeg etiqueta el H.265 como hev1, que Safari/iOS no reproducen; hvc1 lo aceptan todos los que tienen H.265.
+        // Solo con H.265: en un H.264 la etiqueta hvc1 hace fallar al muxer.
+        .. hevc ? new[] { "-tag:v", "hvc1" } : Array.Empty<string>(),
         "-movflags", "+faststart",
         "-y", outputPath
     ];
@@ -72,10 +76,10 @@ public class FfmpegRecorder(IOptions<CaptureOptions> options, ILogger<FfmpegReco
     ];
 
     public async Task<RecordResult> RecordAsync(string rtspUrl, string outputPath, TimeSpan maxDuration, int rotation, TimeSpan startupGrace,
-        TimeSpan readTimeout, CancellationToken stop, CancellationToken ct)
+        TimeSpan readTimeout, bool hevc, CancellationToken stop, CancellationToken ct)
     {
         // stdin redirigido: escribir 'q' hace que FFmpeg cierre el MP4 correctamente.
-        using var process = Start(RecordArguments(rtspUrl, outputPath, maxDuration, rotation, readTimeout), redirectStdin: true);
+        using var process = Start(RecordArguments(rtspUrl, outputPath, maxDuration, rotation, readTimeout, hevc), redirectStdin: true);
         var stopwatch = Stopwatch.StartNew();
 
         await using var onStop = stop.Register(() =>

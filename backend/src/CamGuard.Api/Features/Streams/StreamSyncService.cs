@@ -121,7 +121,8 @@ public class StreamSyncTrigger
 }
 
 /// <summary>
-/// Mantiene en go2rtc un stream por cámara habilitada. Los streams agregados por la API viven
+/// Mantiene en go2rtc un stream por cámara habilitada (dos en las ONVIF: principal y substream para el vivo).
+/// Los streams agregados por la API viven
 /// en memoria, así que se vuelven a registrar periódicamente (p. ej. tras reiniciar go2rtc).
 /// </summary>
 public class StreamSyncService(
@@ -134,6 +135,7 @@ public class StreamSyncService(
 {
     private readonly Dictionary<string, string> _applied = new();
     private readonly HashSet<int> _warnedWithoutPassword = [];
+    private readonly HashSet<int> _warnedWithoutStreams = [];
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -189,6 +191,24 @@ public class StreamSyncService(
             }
 
             _warnedWithoutPassword.Remove(camera.Id);
+            if (camera.Kind == CameraKind.Onvif)
+            {
+                // Las URIs las descubre Features/Onvif al conectar; hasta entonces no hay nada que registrar.
+                var main = Go2rtcStreamSource.ForRtsp(camera.OnvifMainStreamUri, camera.Ip, camera.Username, password);
+                var live = Go2rtcStreamSource.ForRtsp(camera.OnvifSubStreamUri ?? camera.OnvifMainStreamUri, camera.Ip, camera.Username, password);
+                if (main is null || live is null)
+                {
+                    if (_warnedWithoutStreams.Add(camera.Id))
+                        logger.LogInformation("La cámara ONVIF {Name} aún no informa sus perfiles de video", camera.Name);
+                    continue;
+                }
+
+                _warnedWithoutStreams.Remove(camera.Id);
+                desired[camera.Go2rtcStream] = main;
+                desired[Go2rtcStreamNames.Live(camera)] = live;
+                continue;
+            }
+
             desired[camera.Go2rtcStream] = Go2rtcStreamSource.For(camera.Ip, camera.DvripPort, camera.Username, password);
         }
 

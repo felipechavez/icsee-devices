@@ -3,6 +3,7 @@ using CamGuard.Api.Common;
 using CamGuard.Api.Common.Data;
 using CamGuard.Api.Common.Notifications;
 using CamGuard.Api.Common.Realtime;
+using CamGuard.Api.Features.Onvif;
 using CamGuard.Api.Features.Tuya;
 using CamGuard.Api.Features.Upload;
 using Microsoft.AspNetCore.SignalR;
@@ -32,6 +33,7 @@ public class HealthMonitorService(
     UploadHealth uploads,
     TuyaConnectionState tuya,
     IOptions<TuyaOptions> tuyaOptions,
+    OnvifConnectionState onvif,
     NotifierHealth ntfy,
     NotificationOutbox outbox,
     IOptions<NtfyOptions> ntfyOptions,
@@ -172,12 +174,14 @@ public class HealthMonitorService(
             }
 
             var activity = awake.GetValueOrDefault(c.Id);
+            var connection = c.Kind == CameraKind.Onvif ? onvif.Get(c.Id) : null;
             result.Add(new CameraHealth(
                 c.Id, c.Name, c.Kind, c.Enabled, c.BatteryPercent, c.DeviceInfoAt,
                 points.Count > 0 ? BatteryForecast.DaysLeft(points, now) : null,
                 points.Where(p => p.At >= chartFrom).ToList(),
                 activity?.Last,
-                Math.Round((activity?.Week ?? 0) / 7.0, 1)));
+                Math.Round((activity?.Week ?? 0) / 7.0, 1),
+                connection?.Connected, connection?.Since, connection?.LastError));
         }
 
         await db.SaveChangesAsync(ct);

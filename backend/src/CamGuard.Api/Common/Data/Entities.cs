@@ -5,20 +5,35 @@ public class Camera
     public int Id { get; set; }
     public required string Name { get; set; }
 
-    /// <summary>iCSee (DVRIP en la LAN) o Tuya (cámara, timbre o cerradura; todo por la nube). No cambia después del alta.</summary>
+    /// <summary>
+    /// iCSee (DVRIP en la LAN), Tuya (cámara, timbre o cerradura; todo por la nube) u ONVIF (cámara enchufada
+    /// en la LAN, p. ej. Imou). No cambia después del alta.
+    /// </summary>
     public CameraKind Kind { get; set; } = CameraKind.Icsee;
 
-    /// <summary>IP de una iCSee; vacía en las Tuya.</summary>
+    /// <summary>IP de una iCSee u ONVIF; vacía en las Tuya.</summary>
     public required string Ip { get; set; }
     public int DvripPort { get; set; } = 34567;
     public required string Go2rtcStream { get; set; }
     public bool Enabled { get; set; } = true;
 
-    /// <summary>Usuario DVRIP de la cámara.</summary>
+    /// <summary>Usuario DVRIP u ONVIF de la cámara.</summary>
     public string Username { get; set; } = "";
 
-    /// <summary>Contraseña DVRIP cifrada (ver CameraSecretProtector). Null = sin configurar.</summary>
+    /// <summary>Contraseña DVRIP u ONVIF cifrada (ver CameraSecretProtector). Null = sin configurar.</summary>
     public string? PasswordProtected { get; set; }
+
+    /// <summary>Puerto HTTP del servicio ONVIF; solo en las ONVIF.</summary>
+    public int OnvifPort { get; set; } = 80;
+
+    /// <summary>URI RTSP del perfil principal (graba), descubierta por ONVIF y sin credenciales. Null = aún no se conoce.</summary>
+    public string? OnvifMainStreamUri { get; set; }
+
+    /// <summary>URI RTSP del perfil de menor resolución (vivo), descubierta por ONVIF y sin credenciales.</summary>
+    public string? OnvifSubStreamUri { get; set; }
+
+    /// <summary>Códec del perfil principal según ONVIF ("H264", "H265"…): con H.265 el MP4 lleva la etiqueta hvc1.</summary>
+    public string? OnvifMainCodec { get; set; }
 
     /// <summary>Modelo editable; si está vacío se completa con el que informa la cámara.</summary>
     public string? Model { get; set; }
@@ -62,7 +77,8 @@ public class Camera
 public enum CameraKind
 {
     Icsee,
-    Tuya
+    Tuya,
+    Onvif
 }
 
 public enum MotionSensitivity
@@ -133,7 +149,10 @@ public enum CameraEventType
     Unlock,
 
     /// <summary>Evento con foto de una cerradura aún sin tipo identificado.</summary>
-    LockEvent
+    LockEvent,
+
+    /// <summary>Cámara ONVIF tapada, movida o manipulada (detector de sabotaje de la cámara).</summary>
+    Tamper
 }
 
 public class CameraEvent
