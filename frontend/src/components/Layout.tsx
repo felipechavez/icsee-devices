@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import { useCanManage } from '../features/account/useMe'
 import { useSystemStatus } from '../features/status/useSystemStatus'
 import { useAuth } from '../hooks/useAuth'
 import { useHubStatus } from '../hooks/eventsHubContext'
@@ -22,6 +23,7 @@ export function Layout() {
   const { username, logout } = useAuth()
   const hubStatus = useHubStatus()
   const [theme, setTheme] = useTheme()
+  const canManage = useCanManage()
   const issues = useSystemStatus().data?.issues ?? []
   const critical = issues.some((i) => i.severity === 'Critical')
 
@@ -36,22 +38,26 @@ export function Layout() {
           <NavLink to="/" end>Inicio</NavLink>
           <NavLink to="/live">Vivo</NavLink>
           <NavLink to="/recordings">Grabaciones</NavLink>
-          <NavLink to="/status">
-            Estado
-            {issues.length > 0 && (
-              <span
-                className="nav-badge"
-                data-health={critical ? 'error' : 'warn'}
-                aria-label={issues.length === 1 ? '1 problema' : `${issues.length} problemas`}
-              >
-                {issues.length}
-              </span>
-            )}
-          </NavLink>
-          <NavLink to="/settings">
-            <span className="nav-long">Configuración</span>
-            <span className="nav-short">Config.</span>
-          </NavLink>
+          {canManage && (
+            <>
+              <NavLink to="/status">
+                Estado
+                {issues.length > 0 && (
+                  <span
+                    className="nav-badge"
+                    data-health={critical ? 'error' : 'warn'}
+                    aria-label={issues.length === 1 ? '1 problema' : `${issues.length} problemas`}
+                  >
+                    {issues.length}
+                  </span>
+                )}
+              </NavLink>
+              <NavLink to="/settings">
+                <span className="nav-long">Configuración</span>
+                <span className="nav-short">Config.</span>
+              </NavLink>
+            </>
+          )}
         </nav>
         <div className="topbar-end">
           {hubStatus !== 'connected' && (

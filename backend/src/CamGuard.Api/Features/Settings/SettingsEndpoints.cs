@@ -1,3 +1,4 @@
+using CamGuard.Api.Common.Auth;
 using CamGuard.Api.Common.Data;
 using CamGuard.Api.Common.Endpoints;
 
@@ -25,6 +26,7 @@ public static class GetSettings
                     return new SettingsDto(s.MaxClipSeconds, s.CooldownSeconds, s.RetentionDays, s.DetectionMinConfidence,
                         s.HealthAlertsEnabled, s.LowBatteryPercent, s.SilentCameraHours, s.LocalMaxGb);
                 })
+                .RequireAuthorization(AuthSetup.ViewerPolicy)
                 .WithTags("Settings");
         }
     }

@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { ApiError } from './api/client'
 import { Layout } from './components/Layout'
+import { ManageOnly } from './features/account/ManageOnly'
 import { ToastProvider } from './components/Toast'
 import { HomePage } from './features/live/HomePage'
 import { LiveMosaicPage } from './features/live/LiveMosaicPage'
@@ -33,8 +34,8 @@ export default function App() {
               <Route path="live" element={<LiveMosaicPage />} />
               <Route path="latest" element={<LatestRedirect />} />
               <Route path="recordings" element={<RecordingsPage />} />
-              <Route path="status" element={<StatusPage />} />
-              <Route path="settings" element={<SettingsPage />} />
+              <Route path="status" element={<ManageOnly><StatusPage /></ManageOnly>} />
+              <Route path="settings" element={<ManageOnly><SettingsPage /></ManageOnly>} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

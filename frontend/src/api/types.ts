@@ -100,6 +100,8 @@ export interface TestConnectionResult {
 export interface Me {
   username: string
   isAdmin: boolean
+  /** Rol camguard-viewer: solo ve cámaras y grabaciones (sin Estado, Configuración ni borrar). */
+  isReadOnly: boolean
 }
 
 /** Cámara hallada por "Buscar en la red" que aún no está en CamGuard. */

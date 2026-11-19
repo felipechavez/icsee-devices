@@ -1,3 +1,4 @@
+using CamGuard.Api.Common.Auth;
 using CamGuard.Api.Common.Data;
 using CamGuard.Api.Common.Endpoints;
 using CamGuard.Api.Common.Storage;
@@ -119,6 +120,7 @@ public static class ListCameras
                         return ToResponse(c, states.Get(c.Id), gate.IsRecording(c.Id), stats, onvif.Get(c.Id));
                     });
                 })
+                .RequireAuthorization(AuthSetup.ViewerPolicy)
                 .WithTags("Cameras");
         }
     }

@@ -10,17 +10,19 @@ namespace CamGuard.Api.Features.Account;
 /// </summary>
 public static class GetMe
 {
-    public record Response(string Username, bool IsAdmin);
+    public record Response(string Username, bool IsAdmin, bool IsReadOnly = false);
 
     public static Response ToResponse(ClaimsPrincipal user) => new(
         user.FindFirstValue("preferred_username") ?? user.FindFirstValue("sub") ?? "",
-        AuthSetup.HasRealmRole(user, AuthSetup.AdminRole));
+        AuthSetup.HasRealmRole(user, AuthSetup.AdminRole),
+        AuthSetup.IsReadOnly(user));
 
     public class Endpoint : IEndpoint
     {
         public void MapEndpoint(IEndpointRouteBuilder app)
         {
             app.MapGet("/me", (ClaimsPrincipal user) => Results.Ok(ToResponse(user)))
+                .RequireAuthorization(AuthSetup.ViewerPolicy)
                 .WithTags("Account");
         }
     }

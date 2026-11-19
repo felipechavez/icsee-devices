@@ -1,6 +1,9 @@
 using System.Security.Claims;
 using System.Security.Cryptography;
 using CamGuard.Api.Common.Auth;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 
@@ -111,6 +114,60 @@ public class AuthSetupTests
 
         await Assert.That(result.IsValid).IsTrue();
         await Assert.That(AuthSetup.HasRealmRole(new ClaimsPrincipal(result.ClaimsIdentity), AuthSetup.AdminRole)).IsTrue();
+    }
+
+    [Test]
+    [Arguments("""{"roles":["camguard-viewer"]}""", true)]
+    [Arguments("""{"roles":["camguard-viewer","camguard-admin"]}""", false)]
+    [Arguments("""{"roles":["camguard-admin"]}""", false)]
+    [Arguments("""{"roles":["offline_access"]}""", false)]
+    public async Task IsReadOnly_RealmRoles_ViewerWithoutAdmin(string realmAccess, bool expected)
+    {
+        await Assert.That(AuthSetup.IsReadOnly(User(realmAccess))).IsEqualTo(expected);
+    }
+
+    private static async Task<bool> Authorize(ClaimsPrincipal user, string? policyName)
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddJwtAuth(new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Auth:Authority"] = Authority })
+            .Build());
+        await using var provider = services.BuildServiceProvider();
+        var policies = provider.GetRequiredService<IAuthorizationPolicyProvider>();
+        var policy = policyName is null ? await policies.GetFallbackPolicyAsync() : await policies.GetPolicyAsync(policyName);
+        var result = await provider.GetRequiredService<IAuthorizationService>().AuthorizeAsync(user, policy!);
+        return result.Succeeded;
+    }
+
+    [Test]
+    [Arguments("""{"roles":["offline_access"]}""", true)]
+    [Arguments("""{"roles":["camguard-admin"]}""", true)]
+    [Arguments("""{"roles":["camguard-viewer","camguard-admin"]}""", true)]
+    [Arguments("""{"roles":["camguard-viewer"]}""", false)]
+    public async Task FallbackPolicy_RealmRoles_ExcludesReadOnly(string realmAccess, bool expected)
+    {
+        await Assert.That(await Authorize(User(realmAccess), null)).IsEqualTo(expected);
+    }
+
+    [Test]
+    [Arguments("""{"roles":["camguard-viewer"]}""")]
+    [Arguments("""{"roles":["offline_access"]}""")]
+    public async Task ViewerPolicy_AuthenticatedUser_Allowed(string realmAccess)
+    {
+        await Assert.That(await Authorize(User(realmAccess), AuthSetup.ViewerPolicy)).IsTrue();
+    }
+
+    [Test]
+    public async Task ViewerPolicy_Anonymous_Denied()
+    {
+        await Assert.That(await Authorize(new ClaimsPrincipal(new ClaimsIdentity()), AuthSetup.ViewerPolicy)).IsFalse();
+    }
+
+    [Test]
+    public async Task AdminPolicy_Viewer_Denied()
+    {
+        await Assert.That(await Authorize(User("""{"roles":["camguard-viewer"]}"""), AuthSetup.AdminPolicy)).IsFalse();
     }
 
     [Test]

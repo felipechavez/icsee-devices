@@ -1,3 +1,4 @@
+using CamGuard.Api.Common.Auth;
 using CamGuard.Api.Common.Data;
 using CamGuard.Api.Common.Endpoints;
 using CamGuard.Api.Common.Storage;
@@ -37,6 +38,7 @@ public static class GetPlaybackUrl
                         download == true ? DownloadFileName(recording) : null);
                     return Results.Ok(new Response(url, clock.GetUtcNow().Add(ttl)));
                 })
+                .RequireAuthorization(AuthSetup.ViewerPolicy)
                 .WithTags("Recordings");
         }
     }

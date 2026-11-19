@@ -1,3 +1,4 @@
+using CamGuard.Api.Common.Auth;
 using System.Text;
 using CamGuard.Api.Common;
 using CamGuard.Api.Common.Data;
@@ -93,6 +94,7 @@ public static class WebRtcSignaling
                         : Results.Text(answer, "application/sdp");
                 })
                 .Accepts<string>("application/sdp")
+                .RequireAuthorization(AuthSetup.ViewerPolicy)
                 .WithTags("Live");
         }
     }

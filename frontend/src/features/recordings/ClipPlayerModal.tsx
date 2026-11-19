@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { api } from '../../api/client'
 import type { Recording } from '../../api/types'
 import { Modal } from '../../components/Modal'
+import { useCanManage } from '../account/useMe'
 import { formatDay, formatSize, formatTime } from '../../lib/format'
 import { useDeleteRecording, usePlaybackUrl } from './useRecordings'
 
@@ -21,6 +22,7 @@ export function ClipPlayerModal({ recordingId, recording, siblings = [], onNavig
   const failed = recording?.status === 'Failed'
   const playback = usePlaybackUrl(recordingId, !failed)
   const remove = useDeleteRecording()
+  const canManage = useCanManage()
   const [downloadError, setDownloadError] = useState<string | null>(null)
   // URL que el navegador no pudo decodificar (p. ej. H.265 en Firefox); se compara con la actual, sin efectos.
   const [unplayableUrl, setUnplayableUrl] = useState<string | null>(null)
@@ -135,9 +137,11 @@ export function ClipPlayerModal({ recordingId, recording, siblings = [], onNavig
               Descargar
             </button>
           )}
-          <button className="btn btn-danger" onClick={handleDelete} disabled={remove.isPending}>
-            {remove.isPending ? 'Eliminando…' : 'Eliminar'}
-          </button>
+          {canManage && (
+            <button className="btn btn-danger" onClick={handleDelete} disabled={remove.isPending}>
+              {remove.isPending ? 'Eliminando…' : 'Eliminar'}
+            </button>
+          )}
         </div>
       </div>
     </Modal>

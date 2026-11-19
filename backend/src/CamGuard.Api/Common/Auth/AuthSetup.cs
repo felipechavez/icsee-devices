@@ -29,6 +29,23 @@ public static class AuthSetup
     /// <summary>Policy de los endpoints solo para administradores.</summary>
     public const string AdminPolicy = "Admin";
 
+    /// <summary>
+    /// Rol de realm de solo lectura: ver cámaras (vivo) y grabaciones, nada más. Si el usuario también tiene
+    /// <see cref="AdminRole"/>, gana el de administrador.
+    /// </summary>
+    public const string ViewerRole = "camguard-viewer";
+
+    /// <summary>
+    /// Policy de lo que puede usar un usuario de solo lectura (cualquier usuario autenticado). Se pone explícita en
+    /// cada endpoint de visualización; lo que no la lleve usa la fallback policy, que excluye a los de solo lectura.
+    /// Así un endpoint nuevo queda cerrado para ellos por defecto.
+    /// </summary>
+    public const string ViewerPolicy = "Viewer";
+
+    /// <summary>¿Usuario de solo lectura? Tiene <see cref="ViewerRole"/> y no <see cref="AdminRole"/>.</summary>
+    public static bool IsReadOnly(ClaimsPrincipal user) =>
+        HasRealmRole(user, ViewerRole) && !HasRealmRole(user, AdminRole);
+
     /// <summary>Claim de Keycloak con los roles de realm: <c>{"roles":["camguard-admin", ...]}</c>.</summary>
     public const string RealmAccessClaim = "realm_access";
 
@@ -108,9 +125,12 @@ public static class AuthSetup
             });
 
         services.AddAuthorizationBuilder()
+            // Todo lo que no declare su policy: usuarios autenticados que no sean de solo lectura.
             .SetFallbackPolicy(new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
                 .RequireAuthenticatedUser()
+                .RequireAssertion(context => !IsReadOnly(context.User))
                 .Build())
+            .AddPolicy(ViewerPolicy, policy => policy.RequireAuthenticatedUser())
             .AddPolicy(AdminPolicy, policy => policy
                 .RequireAuthenticatedUser()
                 .RequireAssertion(context => HasRealmRole(context.User, AdminRole)));

@@ -53,6 +53,11 @@ CamGuard (`keycloak/theme`, hecho con Keycloakify). La web usa Authorization Cod
   (o para dárselo a otro usuario): `sh scripts/keycloak-admin-role.sh <usuario>`, que crea el rol si falta.
   Después, ese usuario debe cerrar sesión y volver a entrar. También se asigna en la consola: *Users → usuario →
   Role mapping*.
+- **Solo lectura** (p. ej. para familiares): el rol de realm `camguard-viewer` solo deja ver las cámaras (en vivo)
+  y las grabaciones; no ve Estado ni Configuración ni puede borrar clips (la API responde 403). Se asigna con
+  `sh scripts/keycloak-admin-role.sh <usuario> viewer` (crea el rol si falta) o en la consola. Si el usuario
+  también tiene `camguard-admin`, gana el de administrador. Un usuario sin ninguno de los dos sigue con acceso
+  completo salvo lo de administrador.
 
 ### Varias cámaras
 

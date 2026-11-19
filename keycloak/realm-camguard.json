@@ -34,6 +34,10 @@
       {
         "name": "camguard-admin",
         "description": "Administra CamGuard (p. ej. buscar cámaras nuevas en la red)"
+      },
+      {
+        "name": "camguard-viewer",
+        "description": "Solo lectura: ver cámaras en vivo y grabaciones"
       }
     ]
   },

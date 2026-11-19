@@ -72,7 +72,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapHealthChecks("/health").AllowAnonymous();
-app.MapHub<EventsHub>(EventsHub.Path);
+app.MapHub<EventsHub>(EventsHub.Path).RequireAuthorization(AuthSetup.ViewerPolicy);
 app.MapEndpoints();
 
 app.Run();

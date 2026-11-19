@@ -6,6 +6,7 @@ import { StatusPill } from '../../components/StatusPill'
 import { useNow } from '../../hooks/useNow'
 import { batteryLevel, cameraStatus, LOW_BATTERY } from '../../lib/cameraStatus'
 import { formatAgo, formatGb, formatTime, formatWhen, hourBuckets, localDayKey, todayKey } from '../../lib/format'
+import { useCanManage } from '../account/useMe'
 import { useCameras } from '../cameras/useCameras'
 import { ClipPlayerModal } from '../recordings/ClipPlayerModal'
 import { RecordingCard } from '../recordings/RecordingCard'
@@ -178,6 +179,7 @@ function CameraDetail({ camera, onBack }: { camera: Camera; onBack?: () => void 
 
 export function HomePage() {
   const cameras = useCameras()
+  const canManage = useCanManage()
   const [params, setParams] = useSearchParams()
   const [open, setOpen] = useState<Recording | null>(null)
   const now = useNow(60_000)
@@ -196,7 +198,7 @@ export function HomePage() {
       {cameras.error && <p className="error">{cameras.error.message}</p>}
       {cameras.data && all.length === 0 && (
         <div className="empty">
-          Aún no hay cámaras. Agrégalas en <Link to="/settings">Configuración</Link>.
+          Aún no hay cámaras.{canManage && <> Agrégalas en <Link to="/settings">Configuración</Link>.</>}
         </div>
       )}
 
@@ -214,9 +216,11 @@ export function HomePage() {
                 <Link className="btn" to="/live">
                   Mosaico en vivo
                 </Link>
-                <Link className="btn" to="/settings">
-                  Administrar
-                </Link>
+                {canManage && (
+                  <Link className="btn" to="/settings">
+                    Administrar
+                  </Link>
+                )}
               </div>
             </div>
             <div className="cam-grid">

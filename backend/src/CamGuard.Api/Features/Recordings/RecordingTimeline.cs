@@ -1,3 +1,4 @@
+using CamGuard.Api.Common.Auth;
 using CamGuard.Api.Common.Data;
 using CamGuard.Api.Common.Endpoints;
 using Microsoft.EntityFrameworkCore;
@@ -51,6 +52,7 @@ public static class RecordingTimeline
                         .ToListAsync(ct);
                     return Results.Ok(items);
                 })
+                .RequireAuthorization(AuthSetup.ViewerPolicy)
                 .WithTags("Recordings");
         }
     }
@@ -67,6 +69,7 @@ public static class RecordingSummary
         {
             app.MapGet("/recordings/summary", async (AppDbContext db, CancellationToken ct) =>
                     new Response(await db.Recordings.CountAsync(r => r.Status == RecordingStatus.Uploaded, ct)))
+                .RequireAuthorization(AuthSetup.ViewerPolicy)
                 .WithTags("Recordings");
         }
     }

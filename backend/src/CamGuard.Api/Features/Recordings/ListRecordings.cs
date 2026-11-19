@@ -1,3 +1,4 @@
+using CamGuard.Api.Common.Auth;
 using CamGuard.Api.Common.Data;
 using CamGuard.Api.Common.Endpoints;
 using CamGuard.Api.Common.Storage;
@@ -83,6 +84,7 @@ public static class ListRecordings
 
                     return new Response(items, p, size, total, p * size < total);
                 })
+                .RequireAuthorization(AuthSetup.ViewerPolicy)
                 .WithTags("Recordings");
         }
     }

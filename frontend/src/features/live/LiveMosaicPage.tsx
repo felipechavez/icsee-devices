@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import type { Camera } from '../../api/types'
 import { BatteryBadge } from '../../components/BatteryBadge'
 import { StatusPill } from '../../components/StatusPill'
+import { useCanManage } from '../account/useMe'
 import { useCameras } from '../cameras/useCameras'
 import { LivePlayer } from './LivePlayer'
 
@@ -37,6 +38,7 @@ function LiveTile({ camera, generation }: { camera: Camera; generation: number }
  */
 export function LiveMosaicPage() {
   const cameras = useCameras()
+  const canManage = useCanManage()
   const [generation, setGeneration] = useState(0)
 
   const all = cameras.data ?? []
@@ -61,7 +63,7 @@ export function LiveMosaicPage() {
       {cameras.error && <p className="error">{cameras.error.message}</p>}
       {cameras.data && all.length === 0 && (
         <div className="empty">
-          Aún no hay cámaras. Agrégalas en <Link to="/settings">Configuración</Link>.
+          Aún no hay cámaras.{canManage && <> Agrégalas en <Link to="/settings">Configuración</Link>.</>}
         </div>
       )}
 
