@@ -96,6 +96,31 @@ export interface TestConnectionResult {
   model: string | null
 }
 
+/** Usuario de la sesión (GET /api/me). */
+export interface Me {
+  username: string
+  isAdmin: boolean
+}
+
+/** Cámara hallada por "Buscar en la red" que aún no está en CamGuard. */
+export interface DiscoveredCamera {
+  kind: CameraKind
+  ip: string | null
+  /** Puerto DVRIP (iCSee) o del servicio ONVIF; null en Tuya. */
+  port: number | null
+  tuyaDeviceId: string | null
+  suggestedName: string
+  model: string | null
+  detail: string | null
+}
+
+export interface DiscoveryResult {
+  found: DiscoveredCamera[]
+  subnets: string[]
+  warnings: string[]
+  elapsedMs: number
+}
+
 export interface Recording {
   id: string
   cameraId: number

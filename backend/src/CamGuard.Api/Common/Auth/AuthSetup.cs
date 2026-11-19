@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 
@@ -21,6 +23,40 @@ public class AuthOptions
 
 public static class AuthSetup
 {
+    /// <summary>Rol de realm de Keycloak que habilita lo administrativo (p. ej. buscar cámaras en la red).</summary>
+    public const string AdminRole = "camguard-admin";
+
+    /// <summary>Policy de los endpoints solo para administradores.</summary>
+    public const string AdminPolicy = "Admin";
+
+    /// <summary>Claim de Keycloak con los roles de realm: <c>{"roles":["camguard-admin", ...]}</c>.</summary>
+    public const string RealmAccessClaim = "realm_access";
+
+    /// <summary>
+    /// ¿El token trae el rol de realm? Con <c>MapInboundClaims = false</c>, Keycloak entrega <c>realm_access</c>
+    /// como un claim con JSON. Un JSON ilegible o sin "roles" cuenta como sin rol.
+    /// </summary>
+    public static bool HasRealmRole(ClaimsPrincipal user, string role)
+    {
+        foreach (var claim in user.FindAll(RealmAccessClaim))
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(claim.Value);
+                if (doc.RootElement.ValueKind == JsonValueKind.Object
+                    && doc.RootElement.TryGetProperty("roles", out var roles)
+                    && roles.ValueKind == JsonValueKind.Array
+                    && roles.EnumerateArray().Any(r => r.ValueKind == JsonValueKind.String && r.GetString() == role))
+                    return true;
+            }
+            catch (JsonException)
+            {
+            }
+        }
+
+        return false;
+    }
+
     public static TokenValidationParameters ValidationParameters(AuthOptions options) => new()
     {
         ValidIssuer = options.Authority.TrimEnd('/'),
@@ -74,7 +110,10 @@ public static class AuthSetup
         services.AddAuthorizationBuilder()
             .SetFallbackPolicy(new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
                 .RequireAuthenticatedUser()
-                .Build());
+                .Build())
+            .AddPolicy(AdminPolicy, policy => policy
+                .RequireAuthenticatedUser()
+                .RequireAssertion(context => HasRealmRole(context.User, AdminRole)));
 
         return services;
     }

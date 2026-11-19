@@ -7,10 +7,13 @@ using System.Xml.Linq;
 namespace CamGuard.Api.Features.Onvif;
 
 /// <summary>Error de una cámara ONVIF: un SOAP Fault, una respuesta ilegible o un dato que falta.</summary>
-public class OnvifException(string message, bool unauthorized = false) : Exception(message)
+public class OnvifException(string message, bool unauthorized = false, bool soapFault = false) : Exception(message)
 {
     /// <summary>La cámara rechazó usuario o contraseña. Varios intentos seguidos pueden bloquear la cuenta.</summary>
     public bool Unauthorized { get; } = unauthorized;
+
+    /// <summary>La respuesta fue un SOAP Fault: el equipo habla SOAP aunque rechace la petición.</summary>
+    public bool SoapFault { get; } = soapFault;
 }
 
 /// <param name="MediaXAddr">Servicio Media (perfiles y URIs de video).</param>
@@ -75,11 +78,14 @@ public static class OnvifParser
                                || reason?.Contains("unauthorized", StringComparison.OrdinalIgnoreCase) == true;
             var detail = string.IsNullOrEmpty(reason) ? codes.LastOrDefault() ?? "error sin detalle" : reason;
             throw new OnvifException(unauthorized ? $"Usuario o contraseña incorrectos ({detail})" : $"La cámara respondió un error: {detail}",
-                unauthorized);
+                unauthorized, soapFault: true);
         }
 
         return doc;
     }
+
+    /// <summary>¿Es la respuesta de GetSystemDateAndTime? Distingue una ONVIF de cualquier servidor HTTP.</summary>
+    public static bool IsSystemDateAndTime(XDocument doc) => Descendant(doc, "GetSystemDateAndTimeResponse") is not null;
 
     /// <summary>Hora de la cámara menos la del equipo; null si no informa la hora UTC.</summary>
     public static TimeSpan? ClockOffset(XDocument doc, DateTimeOffset now)

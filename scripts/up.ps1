@@ -111,6 +111,18 @@ if ($localIps -and $envValues['HOST_IP'] -notin $localIps) {
         Write-Host "AVISO: HOST_IP=$($envValues['HOST_IP']) no es una IP de este equipo ($($localIps -join ', ')). El video en vivo (WebRTC) no va a conectar." -ForegroundColor Yellow
     }
 }
+# "Buscar en la red" necesita la subred de la LAN (la API está en la red bridge de Docker y no la ve): solo se sugiere.
+if ([string]::IsNullOrWhiteSpace($envValues['LAN_SUBNETS'])) {
+    $lanAddress = Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue |
+        Sort-Object RouteMetric |
+        ForEach-Object { Get-NetIPAddress -InterfaceIndex $_.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue } |
+        Where-Object { $_.IPAddress -and $_.IPAddress -notlike '169.254.*' } |
+        Select-Object -First 1
+    if ($lanAddress) {
+        $octets = $lanAddress.IPAddress.Split('.')
+        Write-Host "Sugerencia: agrega LAN_SUBNETS=$($octets[0]).$($octets[1]).$($octets[2]).0/24 a .env para buscar cámaras nuevas desde Configuración." -ForegroundColor Yellow
+    }
+}
 if ($envValues['R2_ENDPOINT'] -match '<account-id>') {
     Fail 'R2_ENDPOINT todavía tiene el valor de ejemplo.'
 }

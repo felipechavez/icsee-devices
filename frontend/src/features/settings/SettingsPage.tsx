@@ -2,13 +2,15 @@ import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api } from '../../api/client'
-import type { Camera, Settings, TestConnectionResult } from '../../api/types'
+import type { Camera, DiscoveredCamera, Settings, TestConnectionResult } from '../../api/types'
 import { Stepper } from '../../components/Stepper'
 import { Switch } from '../../components/Switch'
 import { useToast } from '../../components/toastContext'
 import { useCameras } from '../cameras/useCameras'
+import { useMe } from '../account/useMe'
 import { CameraPanel } from './CameraPanel'
-import { emptyDraft, isChanged, streamFromName, toDraft } from './cameraDraft'
+import { DiscoveryPanel } from './DiscoveryPanel'
+import { draftFromDiscovery, emptyDraft, isChanged, streamFromName, toDraft } from './cameraDraft'
 import type { CameraDraft } from './cameraDraft'
 import { useSettings } from './useSettings'
 
@@ -249,6 +251,47 @@ export function SettingsPage() {
     setOpenKey(NEW)
   }
 
+  // "Buscar en la red" (solo administradores; la API lo exige con el rol camguard-admin).
+  const me = useMe()
+  const [discoveryOpen, setDiscoveryOpen] = useState(false)
+  const discovery = useMutation({ mutationFn: api.discoverCameras })
+  const search = () => {
+    setDiscoveryOpen(true)
+    discovery.mutate()
+  }
+  // Lo que se guardó después de buscar deja de ofrecerse.
+  const discovered = discovery.data && {
+    ...discovery.data,
+    found: discovery.data.found.filter((f) =>
+      f.kind === 'Tuya' ? !list.some((c) => c.tuyaDeviceId === f.tuyaDeviceId) : !list.some((c) => c.kind !== 'Tuya' && c.ip === f.ip),
+    ),
+  }
+  const newDraft = drafts[NEW]
+  const inNewDraft = new Set<string>(
+    newDraft
+      ? [
+          newDraft.kind === 'Tuya'
+            ? newDraft.tuyaDeviceId
+            : `${newDraft.ip}:${newDraft.kind === 'Onvif' ? newDraft.onvifPort : newDraft.dvripPort}`,
+        ]
+      : [],
+  )
+  // Alta precargada por la búsqueda, aún sin tocar: se puede reemplazar sin preguntar.
+  const [pristineNew, setPristineNew] = useState<CameraDraft | null>(null)
+  const addDiscovered = (found: DiscoveredCamera) => {
+    const edited = newDraft && newDraft !== emptyDraft && newDraft !== pristineNew
+    if (edited && !window.confirm('Ya hay una cámara nueva sin guardar. ¿Reemplazarla?')) return
+    const draft = draftFromDiscovery(found)
+    setPristineNew(draft)
+    setDrafts((prev) => ({ ...prev, [NEW]: draft }))
+    setTests((prev) => {
+      const next = { ...prev }
+      delete next[NEW]
+      return next
+    })
+    setOpenKey(NEW)
+  }
+
   const canSave = !form || settingsValid(form)
 
   const panel = (key: Key, camera?: Camera) => (
@@ -266,6 +309,7 @@ export function SettingsPage() {
       }}
       test={tests[key]}
       onTest={() => void runTest(key)}
+      focusPassword={key === NEW && !!pristineNew && drafts[NEW] === pristineNew}
       onCancelNew={() => {
         dropDraft(NEW)
         setOpenKey(null)
@@ -367,16 +411,42 @@ export function SettingsPage() {
           <div>
             <h2 className="section-title">Cámaras</h2>
             <p>
-              {list.length === 1 ? '1 cámara conectada' : `${list.length} cámaras conectadas`}: iCSee por DVRIP en tu red
-              local y dispositivos Tuya por la nube.
+              {list.length === 1 ? '1 cámara conectada' : `${list.length} cámaras conectadas`}: iCSee por DVRIP y ONVIF en
+              tu red local, y dispositivos Tuya por la nube.
             </p>
           </div>
-          <button className="btn btn-solid" style={{ padding: '9px 14px', borderRadius: 10 }} onClick={addCamera}>
-            + Agregar cámara
-          </button>
+          <div className="settings-intro-actions">
+            <button className="btn btn-solid" style={{ padding: '9px 14px', borderRadius: 10 }} onClick={addCamera}>
+              + Agregar cámara
+            </button>
+            {me.data?.isAdmin && (
+              <button
+                className="btn btn-solid"
+                style={{ padding: '9px 14px', borderRadius: 10 }}
+                onClick={search}
+                disabled={discovery.isPending}
+              >
+                {discovery.isPending ? 'Buscando…' : 'Buscar en la red'}
+              </button>
+            )}
+          </div>
         </div>
         <div className="settings-body cam-list">
           {cameras.error && <p className="error">{cameras.error.message}</p>}
+          {discoveryOpen && me.data?.isAdmin && (
+            <DiscoveryPanel
+              pending={discovery.isPending}
+              result={discovered}
+              error={discovery.error?.message}
+              added={inNewDraft}
+              onSearch={() => discovery.mutate()}
+              onAdd={addDiscovered}
+              onClose={() => {
+                setDiscoveryOpen(false)
+                discovery.reset()
+              }}
+            />
+          )}
           {drafts[NEW] && panel(NEW)}
           {list.map((c) => panel(String(c.id), c))}
           {cameras.data && list.length === 0 && !drafts[NEW] && <div className="empty">Aún no hay cámaras.</div>}

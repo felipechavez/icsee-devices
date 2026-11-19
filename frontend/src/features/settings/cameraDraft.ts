@@ -1,4 +1,4 @@
-import type { Camera, CameraInput } from '../../api/types'
+import type { Camera, CameraInput, DiscoveredCamera } from '../../api/types'
 
 export interface CameraDraft extends CameraInput {
   /** En un alta, el stream sigue al nombre hasta que el usuario lo edite. */
@@ -47,6 +47,21 @@ export const emptyDraft: CameraDraft = {
   detectAnimals: true,
   onvifPort: 80,
   streamEdited: false,
+}
+
+/** Alta precargada con lo que encontró "Buscar en la red"; falta la contraseña (iCSee/ONVIF). */
+export function draftFromDiscovery(found: DiscoveredCamera): CameraDraft {
+  return {
+    ...emptyDraft,
+    kind: found.kind,
+    name: found.suggestedName,
+    go2rtcStream: streamFromName(found.suggestedName),
+    model: found.model ?? '',
+    ip: found.ip ?? '',
+    dvripPort: found.kind === 'Icsee' && found.port ? found.port : emptyDraft.dvripPort,
+    onvifPort: found.kind === 'Onvif' && found.port ? found.port : emptyDraft.onvifPort,
+    tuyaDeviceId: found.tuyaDeviceId ?? '',
+  }
 }
 
 /** Nombre de stream sugerido a partir del nombre de la cámara: "Patio trasero" → "patio_trasero". */

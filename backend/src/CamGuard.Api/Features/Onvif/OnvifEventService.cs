@@ -333,7 +333,9 @@ public static class OnvifFeature
             // Cada petición tiene su propio tope (RequestTimeoutSeconds + la espera de PullMessages).
             c.Timeout = Timeout.InfiniteTimeSpan;
             c.MaxResponseContentBufferSize = 2 * 1024 * 1024;
-        });
+        })
+            // Sin redirecciones: RebaseHttp apunta cada petición a la cámara configurada, y un 307 la llevaría a otro equipo.
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false });
         services.AddSingleton<OnvifClient>();
         services.AddSingleton<OnvifConnectionState>();
         services.AddHostedService<OnvifEventService>();

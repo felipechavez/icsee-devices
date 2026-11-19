@@ -49,9 +49,24 @@ interface Props {
   test?: TestConnectionResult | 'pending'
   onTest: () => void
   onCancelNew?: () => void
+  /** Alta precargada por "Buscar en la red": solo falta la contraseña. */
+  focusPassword?: boolean
 }
 
-export function CameraPanel({ camera, draft, open, onToggle, onChange, error, onDelete, deleting, test, onTest, onCancelNew }: Props) {
+export function CameraPanel({
+  camera,
+  draft,
+  open,
+  onToggle,
+  onChange,
+  error,
+  onDelete,
+  deleting,
+  test,
+  onTest,
+  onCancelNew,
+  focusPassword,
+}: Props) {
   const status = camera ? cameraStatus(camera) : null
   const pending = camera && (camera.sensitivityPending || draft.motionSensitivity !== camera.motionSensitivity)
   const id = `cam-${camera?.id ?? 'new'}`
@@ -171,6 +186,7 @@ export function CameraPanel({ camera, draft, open, onToggle, onChange, error, on
                   type="password"
                   maxLength={128}
                   autoComplete="new-password"
+                  autoFocus={focusPassword}
                   placeholder={camera?.hasPassword ? '••••••••  (sin cambios)' : ''}
                   aria-invalid={camera && !camera.hasPassword && !draft.password ? true : undefined}
                   {...text('password')}

@@ -59,6 +59,25 @@ public class OnvifClient(IHttpClientFactory httpFactory, TimeProvider clock, IOp
         return session;
     }
 
+    /// <summary>
+    /// ¿Hay un servicio ONVIF en host:puerto? GetSystemDateAndTime sin autenticación (nunca prueba contraseñas:
+    /// una Dahua bloquea la cuenta tras varios fallos). Un SOAP Fault también cuenta: habla ONVIF pero exige clave.
+    /// </summary>
+    public async Task<bool> IdentifyAsync(string host, int port, CancellationToken ct)
+    {
+        var session = new OnvifSession(host, port, new OnvifCredentials("", ""));
+        try
+        {
+            var doc = await SendAsync(session, session.DeviceService, OnvifSoap.Actions.GetSystemDateAndTime,
+                OnvifSoap.Bodies.GetSystemDateAndTime, authenticate: false, TimeSpan.Zero, ct);
+            return OnvifParser.IsSystemDateAndTime(doc);
+        }
+        catch (OnvifException ex)
+        {
+            return ex.SoapFault;
+        }
+    }
+
     public async Task<OnvifCapabilities> GetCapabilitiesAsync(OnvifSession session, CancellationToken ct) =>
         OnvifParser.Capabilities(await SendAsync(session, session.DeviceService, OnvifSoap.Actions.GetCapabilities,
             OnvifSoap.Bodies.GetCapabilities, authenticate: true, TimeSpan.Zero, ct));
@@ -134,6 +153,23 @@ public class OnvifClient(IHttpClientFactory httpFactory, TimeProvider clock, IOp
         var other => other
     };
 
+    /// <summary>Cuerpo HTTP como texto con el charset declarado; si falta o es inválido, UTF-8 (lo que usa ONVIF).</summary>
+    public static string DecodeBody(byte[] body, string? charset)
+    {
+        var encoding = Encoding.UTF8;
+        if (!string.IsNullOrWhiteSpace(charset))
+        {
+            try
+            {
+                encoding = Encoding.GetEncoding(charset.Trim().Trim('"'));
+            }
+            catch (ArgumentException)
+            {
+            }
+        }
+        return encoding.GetString(body);
+    }
+
     private async Task<XDocument> SendAsync(OnvifSession session, Uri to, string action, string body, bool authenticate,
         TimeSpan extraTimeout, CancellationToken ct)
     {
@@ -157,7 +193,8 @@ public class OnvifClient(IHttpClientFactory httpFactory, TimeProvider clock, IOp
         {
             using var response = await http.SendAsync(request, cts.Token);
             status = response.StatusCode;
-            text = await response.Content.ReadAsStringAsync(cts.Token);
+            // Se decodifica a mano: ReadAsStringAsync lanza si el charset es inválido (hay equipos que mandan "charset=%s").
+            text = DecodeBody(await response.Content.ReadAsByteArrayAsync(cts.Token), response.Content.Headers.ContentType?.CharSet);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {

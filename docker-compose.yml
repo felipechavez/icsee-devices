@@ -76,6 +76,8 @@ services:
       Logging__LogLevel__CamGuard.Api.Features.Tuya: ${TUYA_LOG_LEVEL:-Information}
       # IA (personas y animales): el modelo viene en la imagen; otro (p. ej. yolox_tiny) va en /data
       Detection__ModelPath: ${DETECTION_MODEL_PATH:-/app/models/yolox_nano.onnx}
+      # "Buscar en la red" (Configuración): subredes de la LAN en CIDR; vacío = las de las cámaras guardadas
+      Discovery__Subnets: ${LAN_SUBNETS:-}
       # Estado de los respaldos en el panel (scripts/backup-db.sh y verify-backup.sh)
       Health__BackupDirectory: /backups
 

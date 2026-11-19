@@ -43,7 +43,14 @@ public class TuyaApiException(string code, string message) : Exception(message)
     public string Code { get; } = code;
 }
 
-public record TuyaDevice(string Name, string? ProductName, string? Category, bool Online);
+/// <param name="Uid">Usuario de la app (Smart Life/Tuya) dueño del dispositivo; sirve para listar sus demás dispositivos.</param>
+public record TuyaDevice(string Name, string? ProductName, string? Category, bool Online, string? Uid = null);
+
+/// <summary>Un dispositivo de la lista del proyecto (sin <c>local_key</c> ni otros secretos).</summary>
+public record TuyaListedDevice(string Id, string Name, string? ProductName, string? Category, bool Online);
+
+/// <param name="NextRowKey">Para pedir la página siguiente; null si no hay más.</param>
+public record TuyaDevicePage(IReadOnlyList<TuyaListedDevice> Devices, string? NextRowKey);
 
 /// <summary>
 /// Cliente mínimo de la Tuya Cloud API. No registra URLs de stream ni tokens: llevan credenciales temporales.
@@ -69,7 +76,70 @@ public class TuyaApiClient(IHttpClientFactory httpFactory, IOptions<TuyaOptions>
             (string?)result?["name"] ?? deviceId,
             (string?)result?["product_name"],
             (string?)result?["category"],
-            (bool?)result?["online"] ?? false);
+            (bool?)result?["online"] ?? false,
+            (string?)result?["uid"]);
+    }
+
+    /// <summary>Tope de páginas al listar, por si la API repite el cursor.</summary>
+    public const int MaxListPages = 20;
+
+    /// <summary>
+    /// Dispositivos del proyecto: los de las cuentas de la app vinculadas (<c>associated-users</c>). Si ese
+    /// endpoint falla y se conoce un <paramref name="fallbackUid"/>, los de ese usuario.
+    /// </summary>
+    public async Task<IReadOnlyList<TuyaListedDevice>> ListDevicesAsync(string? fallbackUid, CancellationToken ct)
+    {
+        try
+        {
+            var devices = new List<TuyaListedDevice>();
+            string? rowKey = null;
+            for (var page = 0; page < MaxListPages; page++)
+            {
+                var query = new Dictionary<string, string> { ["size"] = "100" };
+                if (rowKey is not null) query["last_row_key"] = Uri.EscapeDataString(rowKey);
+                var result = ParseDeviceList(await SendAsync(HttpMethod.Get,
+                    TuyaSigner.CanonicalUrl("/v1.0/iot-01/associated-users/devices", query), null, ct));
+                devices.AddRange(result.Devices);
+                if (result.NextRowKey is null || result.NextRowKey == rowKey) break;
+                rowKey = result.NextRowKey;
+            }
+            return devices;
+        }
+        catch (TuyaApiException) when (!string.IsNullOrWhiteSpace(fallbackUid))
+        {
+            return ParseDeviceList(await SendAsync(HttpMethod.Get, $"/v1.0/users/{Uri.EscapeDataString(fallbackUid)}/devices", null, ct)).Devices;
+        }
+    }
+
+    /// <summary>
+    /// Lee <c>result</c> de un listado: un arreglo (<c>/users/{uid}/devices</c>) o un objeto con <c>devices</c>/<c>list</c>,
+    /// <c>has_more</c> y <c>last_row_key</c> (<c>associated-users</c>). Se ignoran los elementos sin id.
+    /// </summary>
+    public static TuyaDevicePage ParseDeviceList(JsonNode? result)
+    {
+        var items = result switch
+        {
+            JsonArray array => array,
+            JsonObject obj => obj["devices"] as JsonArray ?? obj["list"] as JsonArray,
+            _ => null
+        };
+
+        var devices = (items ?? [])
+            .OfType<JsonObject>()
+            .Select(d => (Id: d["id"]?.ToString().Trim(), Device: d))
+            .Where(x => !string.IsNullOrEmpty(x.Id))
+            .Select(x => new TuyaListedDevice(
+                x.Id!,
+                (string?)x.Device["name"] is { Length: > 0 } name ? name.Trim() : x.Id!,
+                (string?)x.Device["product_name"],
+                (string?)x.Device["category"],
+                x.Device["online"] is JsonValue online && online.TryGetValue<bool>(out var isOnline) && isOnline))
+            .ToList();
+
+        string? next = null;
+        if (result is JsonObject page && page["has_more"] is JsonValue more && more.TryGetValue<bool>(out var hasMore) && hasMore)
+            next = page["last_row_key"]?.ToString() is { Length: > 0 } key ? key : null;
+        return new TuyaDevicePage(devices, next);
     }
 
     public async Task<IReadOnlyList<TuyaStatus>> GetStatusAsync(string deviceId, CancellationToken ct)

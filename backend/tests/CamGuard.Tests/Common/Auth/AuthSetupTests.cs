@@ -70,6 +70,49 @@ public class AuthSetupTests
         await Assert.That(result.IsValid).IsFalse();
     }
 
+    private static ClaimsPrincipal User(params string[] realmAccess) =>
+        new(new ClaimsIdentity(realmAccess.Select(v => new Claim(AuthSetup.RealmAccessClaim, v)), "test"));
+
+    [Test]
+    [Arguments("""{"roles":["offline_access","camguard-admin"]}""", true)]
+    [Arguments("""{"roles":["offline_access","uma_authorization"]}""", false)]
+    [Arguments("""{"roles":"camguard-admin"}""", false)]
+    [Arguments("""{}""", false)]
+    [Arguments("""["camguard-admin"]""", false)]
+    [Arguments("no es json", false)]
+    public async Task HasRealmRole_RealmAccessClaim_DetectsRole(string realmAccess, bool expected)
+    {
+        await Assert.That(AuthSetup.HasRealmRole(User(realmAccess), AuthSetup.AdminRole)).IsEqualTo(expected);
+    }
+
+    [Test]
+    public async Task HasRealmRole_WithoutClaim_False()
+    {
+        await Assert.That(AuthSetup.HasRealmRole(User(), AuthSetup.AdminRole)).IsFalse();
+    }
+
+    [Test]
+    public async Task HasRealmRole_RoleFromValidatedToken_True()
+    {
+        // Keycloak manda realm_access como objeto JSON: así lo entrega JsonWebTokenHandler al validar.
+        var token = new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
+        {
+            Issuer = Authority,
+            Audience = "camguard-api",
+            Claims = new Dictionary<string, object>
+            {
+                [AuthSetup.RealmAccessClaim] = new Dictionary<string, object> { ["roles"] = new[] { "camguard-admin" } }
+            },
+            Expires = DateTime.UtcNow.AddMinutes(5),
+            SigningCredentials = new SigningCredentials(Key, SecurityAlgorithms.RsaSha256)
+        });
+
+        var result = await Validate(token);
+
+        await Assert.That(result.IsValid).IsTrue();
+        await Assert.That(AuthSetup.HasRealmRole(new ClaimsPrincipal(result.ClaimsIdentity), AuthSetup.AdminRole)).IsTrue();
+    }
+
     [Test]
     public async Task ValidationParameters_AuthorityWithTrailingSlash_IssuerTrimmed()
     {

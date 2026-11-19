@@ -2,6 +2,8 @@ import { getAccessToken, getOidc } from '../auth/oidc'
 import type {
   Camera,
   CameraInput,
+  DiscoveryResult,
+  Me,
   PlaybackUrl,
   RecordingPage,
   RecordingStatus,
@@ -80,6 +82,11 @@ export const api = {
     request<void>(`/api/cameras/${id}`, { method: 'PUT', body: json(data) }),
 
   deleteCamera: (id: number) => request<void>(`/api/cameras/${id}`, { method: 'DELETE' }),
+
+  /** Solo administradores: busca cámaras nuevas en la LAN y en Tuya (tarda unos segundos). */
+  discoverCameras: () => request<DiscoveryResult>('/api/cameras/discover', { method: 'POST' }),
+
+  me: () => request<Me>('/api/me'),
 
   recordings: (params: {
     from?: string

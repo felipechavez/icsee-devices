@@ -48,6 +48,11 @@ CamGuard (`keycloak/theme`, hecho con Keycloakify). La web usa Authorization Cod
   (cliente `camguard-web` → redirect URIs; *Realm settings → Email*).
 - "¿Olvidaste tu contraseña?" necesita `SMTP_*`. Los correos usan el tema de CamGuard.
 - Tras varios intentos fallidos la cuenta se bloquea unos minutos (protección de fuerza bruta).
+- **Administradores**: el rol de realm `camguard-admin` habilita lo administrativo, por ahora
+  **Buscar en la red** en Configuración. El primer usuario lo trae en una instalación nueva. En una anterior
+  (o para dárselo a otro usuario): `sh scripts/keycloak-admin-role.sh <usuario>`, que crea el rol si falta.
+  Después, ese usuario debe cerrar sesión y volver a entrar. También se asigna en la consola: *Users → usuario →
+  Role mapping*.
 
 ### Varias cámaras
 
@@ -60,6 +65,21 @@ vuelve a escribirlas en Configuración.
 
 Una cámara con grabaciones no se puede eliminar (sus clips quedarían huérfanos en R2):
 deshabilítala para dejar de monitorearla y conservar el historial.
+
+#### Buscar cámaras nuevas en la red
+
+Un administrador (rol `camguard-admin`) ve **Configuración → Buscar en la red**. La búsqueda tarda unos 20 s y lista
+lo que aún no está agregado:
+
+- **iCSee y ONVIF** en las subredes de `LAN_SUBNETS` (`.env`, en CIDR, p. ej. `192.168.1.0/24`; vacía = los /24 de las
+  cámaras ya guardadas). La API corre en la red bridge de Docker y no ve la LAN por multicast, así que revisa
+  cada dirección por TCP: el 34567 para DVRIP y el 80, 8000, 2020 y 8080 para ONVIF. Cada puerto abierto se
+  confirma con el protocolo, sin probar contraseñas.
+- **Tuya**: los dispositivos con cámara (`sp`, `videolock`) del proyecto de Tuya Cloud.
+
+**Agregar** abre el alta precargada (tipo, IP, puerto, Device ID y nombre sugerido). Falta escribir la contraseña,
+usar *Probar conexión* y guardar. Una iCSee a batería solo aparece si está despierta en ese momento: actívala con
+movimiento o con el timbre justo antes de buscar.
 
 ### Cámaras ONVIF (Imou, Dahua…)
 

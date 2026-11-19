@@ -29,6 +29,14 @@
     "starttls": "${SMTP_STARTTLS:true}",
     "ssl": "false"
   },
+  "roles": {
+    "realm": [
+      {
+        "name": "camguard-admin",
+        "description": "Administra CamGuard (p. ej. buscar cámaras nuevas en la red)"
+      }
+    ]
+  },
   "clients": [
     {
       "clientId": "camguard-web",
@@ -73,6 +81,7 @@
       "lastName": "CamGuard",
       "enabled": true,
       "requiredActions": ["UPDATE_PASSWORD"],
+      "realmRoles": ["default-roles-camguard", "camguard-admin"],
       "credentials": [
         {
           "type": "password",
