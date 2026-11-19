@@ -82,6 +82,53 @@ public class DiscoveryMergeTests
             .IsEqualTo("192.168.1.9,192.168.1.10,192.168.1.100,cam000000001");
     }
 
+    private static Camera Onvif(string ip) => new() { Name = "o", Ip = ip, Go2rtcStream = "o", Kind = CameraKind.Onvif };
+
+    [Test]
+    public async Task Merge_DahuaFactoryIpWithOtherOnvifFound_SkippedWithWarning()
+    {
+        var warnings = new List<string>();
+
+        var found = DiscoveryMerge.Merge(
+            [new LanHit("192.168.1.104", LanProtocol.Onvif, 80), new LanHit(DiscoveryMerge.DahuaFactoryIp, LanProtocol.Onvif, 80)],
+            [], [], Categories, warnings);
+
+        await Assert.That(found.Select(f => f.Ip)).IsEquivalentTo(["192.168.1.104"]);
+        await Assert.That(warnings.Count).IsEqualTo(1);
+        await Assert.That(warnings[0]).Contains(DiscoveryMerge.DahuaFactoryIp);
+    }
+
+    [Test]
+    public async Task Merge_DahuaFactoryIpWithOnvifAlreadyRegistered_Skipped()
+    {
+        var found = DiscoveryMerge.Merge([new LanHit(DiscoveryMerge.DahuaFactoryIp, LanProtocol.Onvif, 80)], [],
+            [Onvif("192.168.1.104")], Categories);
+
+        await Assert.That(found.Count).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Merge_DahuaFactoryIpAlone_Offered()
+    {
+        // Una Dahua nueva sin DHCP queda solo en su IP de fábrica: ahí sí es una cámara nueva.
+        var warnings = new List<string>();
+
+        var found = DiscoveryMerge.Merge([new LanHit(DiscoveryMerge.DahuaFactoryIp, LanProtocol.Onvif, 80)], [], [], Categories, warnings);
+
+        await Assert.That(found.Single().Ip).IsEqualTo(DiscoveryMerge.DahuaFactoryIp);
+        await Assert.That(warnings.Count).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Merge_FactoryIpIsIcsee_NotSkipped()
+    {
+        var found = DiscoveryMerge.Merge(
+            [new LanHit(DiscoveryMerge.DahuaFactoryIp, LanProtocol.Dvrip, 34567), new LanHit(DiscoveryMerge.DahuaFactoryIp, LanProtocol.Onvif, 80)],
+            [], [Onvif("192.168.1.104")], Categories);
+
+        await Assert.That(found.Single().Kind).IsEqualTo(CameraKind.Icsee);
+    }
+
     [Test]
     public async Task Merge_LongTuyaName_Truncated()
     {

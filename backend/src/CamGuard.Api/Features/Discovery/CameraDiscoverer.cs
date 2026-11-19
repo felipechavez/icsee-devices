@@ -63,7 +63,7 @@ public class CameraDiscoverer(
         var hits = await lanTask;
         var devices = await tuyaTask;
 
-        var found = DiscoveryMerge.Merge(hits, devices, known, o.TuyaCategorySet());
+        var found = DiscoveryMerge.Merge(hits, devices, known, o.TuyaCategorySet(), warnings);
         stopwatch.Stop();
         logger.LogInformation("Búsqueda de cámaras: {Subnets} ({Hosts} equipos) y Tuya, {Found} nuevas en {Seconds:0.0} s",
             plan.Subnets.Count == 0 ? "sin subredes" : string.Join(", ", plan.Subnets), hosts.Count, found.Count,

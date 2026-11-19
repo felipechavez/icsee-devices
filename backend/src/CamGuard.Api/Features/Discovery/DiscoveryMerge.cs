@@ -30,12 +30,21 @@ public static class DiscoveryMerge
 {
     public const int MaxNameLength = 100;
 
+    /// <summary>
+    /// IP de fábrica de Dahua/Imou: la cámara la sigue contestando como alias además de la que le dio el router,
+    /// así que una sola cámara aparece en dos IPs.
+    /// </summary>
+    public const string DahuaFactoryIp = "192.168.1.108";
+
+    /// <param name="warnings">Aquí se explica lo que se omitió a propósito (p. ej. el alias de fábrica de Dahua).</param>
     public static IReadOnlyList<DiscoveredCamera> Merge(
         IEnumerable<LanHit> hits,
         IEnumerable<TuyaListedDevice> tuyaDevices,
         IEnumerable<Camera> known,
-        IReadOnlySet<string> tuyaCameraCategories)
+        IReadOnlySet<string> tuyaCameraCategories,
+        ICollection<string>? warnings = null)
     {
+        var hitList = hits.ToList();
         var cameras = known.ToList();
         // Una IP ya registrada no se ofrece con ningún tipo: una iCSee que además expone ONVIF no se duplica.
         var knownIps = cameras.Where(c => c.Kind != CameraKind.Tuya && !string.IsNullOrWhiteSpace(c.Ip))
@@ -45,8 +54,20 @@ public static class DiscoveryMerge
             .Where(id => id.Length > 0)
             .ToHashSet(StringComparer.Ordinal);
 
+        // Sin contraseña no se puede leer el número de serie para saber si dos IPs son el mismo equipo. Regla práctica:
+        // si 192.168.1.108 responde ONVIF y hay otra ONVIF (registrada o hallada ahora), es el alias de esa cámara.
+        // Una Dahua nueva sin DHCP, sola en la red, sí se ofrece en .108.
+        var otherOnvif = cameras.Any(c => c.Kind == CameraKind.Onvif && c.Ip.Trim() != DahuaFactoryIp)
+                         || hitList.Any(h => h.Protocol == LanProtocol.Onvif && h.Ip != DahuaFactoryIp && !knownIps.Contains(h.Ip));
+        var skipFactoryAlias = otherOnvif && !knownIps.Contains(DahuaFactoryIp)
+                               && hitList.Any(h => h.Ip == DahuaFactoryIp && h.Protocol == LanProtocol.Onvif)
+                               && hitList.All(h => h.Ip != DahuaFactoryIp || h.Protocol == LanProtocol.Onvif);
+        if (skipFactoryAlias)
+            warnings?.Add($"{DahuaFactoryIp} responde ONVIF: es la IP de fábrica de Dahua/Imou, que la cámara mantiene además de la " +
+                          "del router. Se omite porque es la misma cámara que otra ONVIF; agrégala solo con la IP del router.");
+
         var found = new List<DiscoveredCamera>();
-        foreach (var group in hits.Where(h => !knownIps.Contains(h.Ip)).GroupBy(h => h.Ip))
+        foreach (var group in hitList.Where(h => !knownIps.Contains(h.Ip) && !(skipFactoryAlias && h.Ip == DahuaFactoryIp)).GroupBy(h => h.Ip))
         {
             var dvrip = group.FirstOrDefault(h => h.Protocol == LanProtocol.Dvrip);
             var onvifPorts = group.Where(h => h.Protocol == LanProtocol.Onvif).Select(h => h.Port).Distinct()
